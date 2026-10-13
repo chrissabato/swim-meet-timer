@@ -1,0 +1,551 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b3d63">
+<title>Simple Meet Timer</title>
+<style>
+  :root {
+    --bg: #f3f6f9; --card: #ffffff; --text: #0f1b26; --muted: #5b6b7a; --line: #d8e0e8;
+    --brand: #0b3d63; --accent: #0a74c9; --go: #138a3e; --stop: #c62828; --warn: #b26a00;
+    --gold: #c99a06; --clock: #0b3d63;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0b1219; --card: #131d27; --text: #e8eef4; --muted: #8fa2b4; --line: #24323f;
+      --brand: #0e2a42; --accent: #3a9cf0; --go: #2fb35c; --stop: #ef5350; --warn: #f0a33a;
+      --gold: #f2c94c; --clock: #e8eef4;
+    }
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { background: var(--brand); color: #fff; padding: 12px 16px; display: flex; align-items: center; gap: 12px; }
+  header a { color: #fff; text-decoration: none; font-weight: 700; }
+  header .meta { margin-left: auto; font-size: 14px; opacity: .85; text-align: right; }
+  main { max-width: 720px; margin: 0 auto; padding: 16px; }
+  main.wide { max-width: 1200px; }
+  h1 { font-size: 22px; margin: 0 0 12px; }
+  h2 { font-size: 18px; margin: 20px 0 8px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+  label { display: block; font-size: 14px; color: var(--muted); margin: 10px 0 4px; }
+  input, select { width: 100%; font: inherit; padding: 12px; border-radius: 8px; border: 1px solid var(--line);
+    background: var(--bg); color: var(--text); }
+  .row { display: flex; gap: 10px; }
+  .row > * { flex: 1; }
+  button, .btn { font: inherit; font-weight: 600; border: 0; border-radius: 10px; padding: 14px 16px; cursor: pointer;
+    background: var(--accent); color: #fff; display: block; width: 100%; text-align: center; text-decoration: none;
+    touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+  button.secondary, .btn.secondary { background: transparent; color: var(--accent); border: 2px solid var(--accent); }
+  button.danger { background: var(--stop); }
+  button:disabled { opacity: .4; cursor: default; }
+  .stack > * + * { margin-top: 10px; }
+  .muted { color: var(--muted); }
+  .small { font-size: 13px; }
+  .center { text-align: center; }
+  .code { font: 700 32px/1 ui-monospace, Menlo, monospace; letter-spacing: 4px; }
+  .clock { font: 700 64px/1 ui-monospace, "SF Mono", Menlo, Consolas, monospace; color: var(--clock);
+    text-align: center; font-variant-numeric: tabular-nums; margin: 12px 0; }
+  .roles { display: grid; gap: 12px; }
+  .roles .btn { padding: 22px; font-size: 20px; }
+  .roles .btn small { display: block; font-weight: 400; font-size: 14px; opacity: .85; }
+  .lanegrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .lanegrid button { padding: 22px 0; font-size: 24px; }
+  .big { font-size: 34px; padding: 0; height: 38vh; min-height: 180px; border-radius: 18px; letter-spacing: 2px; }
+  .big.go { background: var(--go); }
+  .big.split { background: var(--accent); }
+  .big.finish { background: var(--stop); }
+  .big small { display: block; font-size: 16px; font-weight: 500; letter-spacing: 0; opacity: .9; }
+  .pill { display: inline-block; padding: 2px 10px; border-radius: 99px; font-size: 13px; font-weight: 600;
+    background: var(--line); color: var(--text); }
+  .pill.live { background: var(--stop); color: #fff; }
+  .pill.done { background: var(--go); color: #fff; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { padding: 8px 6px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .splits { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .place1 { color: var(--gold); font-weight: 800; }
+  #toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--stop); color: #fff;
+    padding: 10px 16px; border-radius: 8px; font-weight: 600; display: none; z-index: 10; max-width: 90vw; }
+  .conn { width: 10px; height: 10px; border-radius: 50%; background: var(--go); display: inline-block; }
+  .conn.off { background: var(--stop); }
+
+  /* Scoreboard */
+  .board .clock { font-size: clamp(56px, 10vw, 120px); }
+  .board .heatname { font-size: clamp(20px, 3vw, 34px); font-weight: 700; text-align: center; }
+  .board table td { font-size: clamp(16px, 2.2vw, 28px); padding: 10px 8px; }
+  .board table td.lane { font-weight: 800; width: 3em; }
+  .board .splits { font-size: clamp(12px, 1.4vw, 18px); }
+  .timerdots { letter-spacing: 2px; color: var(--accent); }
+  details summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
+  .split-list td { font-size: 18px; }
+</style>
+</head>
+<body>
+<header>
+  <a href="#/">🏊 Meet Timer</a>
+  <div class="meta" id="hdr"></div>
+</header>
+<main id="app"></main>
+<div id="toast"></div>
+
+<script>
+const API = 'api.php';
+const LANE_DEBOUNCE_MS = 1500;      // ignore a second tap within this window (accidental double-tap)
+const DISTANCES = { yd: [25, 50, 100, 200, 500, 1000, 1650], m: [25, 50, 100, 200, 400, 800, 1500] };
+
+// ---------- clock sync: phones measure their offset from the server clock ----------
+let offset = 0;
+const now = () => Date.now() + offset;
+async function syncClock() {
+  let best = null;
+  for (let i = 0; i < 6; i++) {
+    try {
+      const t0 = Date.now();
+      const { now: s } = await (await fetch(`${API}?a=time&_=${t0}`, { cache: 'no-store' })).json();
+      const t1 = Date.now();
+      if (!best || t1 - t0 < best.rtt) best = { rtt: t1 - t0, off: s - (t0 + t1) / 2 };
+    } catch { /* try again */ }
+  }
+  if (best) offset = best.off;
+}
+
+// ---------- helpers ----------
+const $app = document.getElementById('app');
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+function fmt(ms) {
+  if (ms == null) return '';
+  ms = Math.max(0, Math.floor(ms / 10) * 10);
+  const cs = (ms / 10) % 100, s = Math.floor(ms / 1000) % 60, m = Math.floor(ms / 60000);
+  return (m ? `${m}:${String(s).padStart(2, '0')}` : `${s}`) + '.' + String(cs).padStart(2, '0');
+}
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.style.display = 'block';
+  clearTimeout(toast.h); toast.h = setTimeout(() => (t.style.display = 'none'), 3000);
+}
+const cid = (() => {
+  let id = null;
+  try { id = localStorage.getItem('smt-cid'); } catch {}
+  if (!id) {
+    id = 't' + Math.random().toString(36).slice(2, 10);
+    try { localStorage.setItem('smt-cid', id); } catch {}
+  }
+  return id;
+})();
+const buzz = () => navigator.vibrate && navigator.vibrate(40);
+const nextLabel = (l) => l.replace(/(heat\s*)(\d+)/i, (_, p, n) => p + (Number(n) + 1));
+
+// USA Swimming style: 3 times -> middle, 2 -> average truncated to hundredths, 1 -> that time.
+function official(times) {
+  const t = times.filter((x) => x != null).sort((a, b) => a - b);
+  if (t.length === 0) return null;
+  if (t.length === 1) return t[0];
+  if (t.length === 2) return Math.floor((t[0] + t[1]) / 20) * 10;
+  return t[1];
+}
+
+function laneSummary(laneData) {
+  const timers = Object.values(laneData?.timers || {});
+  const maxSplits = Math.max(0, ...timers.map((t) => t.splits.length));
+  const splits = [];
+  for (let i = 0; i < maxSplits; i++) splits.push(official(timers.map((t) => t.splits[i])));
+  return {
+    timers: timers.length,
+    finished: timers.filter((t) => t.final != null).length,
+    splits,
+    final: official(timers.map((t) => t.final)),
+  };
+}
+
+function results(meet, heat) {
+  const rows = [];
+  for (let lane = 1; lane <= meet.lanes; lane++) rows.push({ lane, ...laneSummary(heat.lanes?.[lane]) });
+  const finals = rows.filter((r) => r.final != null).map((r) => r.final).sort((a, b) => a - b);
+  for (const r of rows) r.place = r.final != null ? finals.indexOf(r.final) + 1 : null;
+  return rows;
+}
+
+const lapsFor = (meet, heat) => (heat.distance && meet.pool ? Math.ceil(heat.distance / meet.pool) : 0);
+const heatTitle = (meet, heat) =>
+  esc(heat.label || 'Untitled heat') + (heat.distance ? ` · ${heat.distance} ${meet.unit} (${lapsFor(meet, heat)} laps)` : '');
+
+// Clock for a heat: stops once every lane with timers has an official final.
+function heatClock(meet, heat) {
+  if (!heat.startedAt) return 0;
+  const rows = results(meet, heat).filter((r) => r.timers > 0);
+  if (rows.length && rows.every((r) => r.final != null)) return Math.max(...rows.map((r) => r.final));
+  return now() - heat.startedAt;
+}
+
+// ---------- server calls ----------
+let meet = null;
+async function post(action, body = {}, code = meet?.code) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const res = await fetch(`${API}?a=${action}&code=${code || ''}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) { toast(data.error || 'Error'); return null; }
+      if (data.meet) applyMeet(data.meet);
+      return data;
+    } catch {
+      await new Promise((r) => setTimeout(r, 400));
+    }
+  }
+  toast('Network problem — not saved');
+  return null;
+}
+
+// Poll the meet. Cheap when nothing changed: the server answers {same:true}.
+let pollCode = null, pollTimer = null, online = true;
+function startPolling(code) {
+  if (pollCode === code) return;
+  pollCode = code; meet = null;
+  clearTimeout(pollTimer);
+  const tick = async () => {
+    if (pollCode !== code) return;
+    try {
+      const res = await fetch(`${API}?a=state&code=${code}&v=${meet?.version || 0}&_=${Date.now()}`, { cache: 'no-store' });
+      const data = await res.json();
+      if (res.status === 404) { toast('Meet not found'); location.hash = '#/'; return; }
+      online = true;
+      if (!data.same && pollCode === code) applyMeet(data);
+    } catch { online = false; }
+    updateHeader();
+    pollTimer = setTimeout(tick, document.hidden ? 3000 : 600);
+  };
+  tick();
+}
+function stopPolling() { pollCode = null; clearTimeout(pollTimer); meet = null; }
+
+function applyMeet(m) {
+  if (meet && m.version < meet.version) return;
+  meet = m;
+  render();
+}
+
+// ---------- routing ----------
+// #/                    home
+// #/CODE                choose role
+// #/CODE/starter        starter
+// #/CODE/timer[/lane]   timer
+// #/CODE/board          scoreboard
+function route() {
+  const [code, role, lane] = location.hash.replace(/^#\/?/, '').split('/');
+  return { code: (code || '').toUpperCase(), role: role || '', lane: Number(lane) || 0 };
+}
+window.addEventListener('hashchange', () => { shellKey = null; render(); });
+
+// Views rebuild their markup only when the "shell key" changes (so inputs aren't wiped
+// mid-typing); otherwise they just refresh their live regions.
+let shellKey = null;
+function render() {
+  const r = route();
+  if (!r.code) { stopPolling(); return shell('home', viewHome); }
+  startPolling(r.code);
+  updateHeader();
+  if (!meet) return shell('loading', () => '<p class="muted center">Connecting…</p>');
+  const views = { starter: viewStarter, timer: r.lane ? viewTimer : viewLanePicker, board: viewBoard };
+  (views[r.role] || viewRoles)(r);
+}
+function shell(key, html, after) {
+  document.querySelector('main').classList.toggle('wide', key.startsWith('board'));
+  if (key === shellKey) return false;
+  shellKey = key;
+  $app.innerHTML = typeof html === 'function' ? html() : html;
+  after && after();
+  return true;
+}
+function updateHeader() {
+  const r = route();
+  document.getElementById('hdr').innerHTML = meet && r.code
+    ? `${esc(meet.name)} · <b>${meet.code}</b> <span class="conn ${online ? '' : 'off'}" title="${online ? 'Connected' : 'Offline'}"></span>`
+    : '';
+}
+
+// ---------- views ----------
+function viewHome() {
+  return `
+  <div class="card">
+    <h1>Join a meet</h1>
+    <form id="join" class="stack">
+      <input id="joincode" placeholder="Meet code (e.g. K7QM)" maxlength="4" autocapitalize="characters" autocomplete="off" required>
+      <button>Join</button>
+    </form>
+  </div>
+  <div class="card">
+    <h1>Create a meet</h1>
+    <form id="create">
+      <label>Meet name</label><input id="mname" placeholder="Saturday Dual Meet">
+      <div class="row">
+        <div><label>Lanes</label><select id="mlanes">${[4,5,6,7,8,9,10].map((n) => `<option ${n === 6 ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
+        <div><label>Pool length</label><select id="mpool">
+          <option value="25-yd">25 yards</option><option value="25-m">25 meters</option><option value="50-m">50 meters</option>
+        </select></div>
+      </div>
+      <div style="margin-top:14px"><button>Create meet</button></div>
+    </form>
+  </div>`;
+}
+document.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (e.target.id === 'join') {
+    location.hash = '#/' + document.getElementById('joincode').value.trim().toUpperCase();
+  } else if (e.target.id === 'create') {
+    const [pool, unit] = document.getElementById('mpool').value.split('-');
+    const res = await post('create', {
+      name: document.getElementById('mname').value,
+      lanes: Number(document.getElementById('mlanes').value), pool: Number(pool), unit,
+    }, '');
+    if (res) location.hash = '#/' + res.code;
+  }
+});
+
+function viewRoles(r) {
+  shell('roles:' + r.code, () => {
+    const link = location.href.split('#')[0] + '#/' + meet.code;
+    return `
+    <div class="card center">
+      <h1>${esc(meet.name)}</h1>
+      <div class="muted small">Meet code</div>
+      <div class="code">${meet.code}</div>
+      <div class="muted small" style="margin-top:6px">${meet.lanes} lanes · ${meet.pool} ${meet.unit} pool</div>
+      <div class="small" style="margin-top:8px;word-break:break-all"><a href="${esc(link)}">${esc(link)}</a></div>
+    </div>
+    <div class="roles">
+      <a class="btn" style="background:var(--go)" href="#/${meet.code}/starter">Starter<small>Starts the clock for each heat</small></a>
+      <a class="btn" href="#/${meet.code}/timer">Timer<small>Records splits and final time for a lane</small></a>
+      <a class="btn secondary" href="#/${meet.code}/board">Scoreboard<small>Live results for a TV or laptop</small></a>
+    </div>`;
+  });
+}
+
+// ----- Starter -----
+function distanceOptions(selected) {
+  return `<option value="0">Distance…</option>` + DISTANCES[meet.unit]
+    .filter((d) => d % meet.pool === 0)
+    .map((d) => `<option value="${d}" ${d === selected ? 'selected' : ''}>${d} ${meet.unit} (${d / meet.pool} lap${d / meet.pool > 1 ? 's' : ''})</option>`)
+    .join('');
+}
+
+function viewStarter(r) {
+  const h = meet.heat;
+  if (!h.startedAt) {
+    shell(`starter-ready:${h.id}`, () => `
+      <div class="card">
+        <span class="pill">Ready</span>
+        <label>Heat label</label>
+        <input id="hlabel" value="${esc(h.label)}" placeholder="Event 3, Heat 2 – 100 Free">
+        <label>Distance</label>
+        <select id="hdist">${distanceOptions(h.distance)}</select>
+      </div>
+      <button class="big go" id="startbtn">START<small>Tap at the start signal</small></button>`, () => {
+      const [hlabel, hdist, startbtn] = ['hlabel', 'hdist', 'startbtn'].map((id) => document.getElementById(id));
+      const save = () => post('setup', { label: hlabel.value, distance: Number(hdist.value) });
+      hlabel.addEventListener('change', save);
+      hdist.addEventListener('change', save);
+      startbtn.addEventListener('pointerdown', async (e) => {
+        e.preventDefault();
+        const t = now();
+        buzz();
+        startbtn.disabled = true;
+        // Make sure the latest label/distance are saved before the heat goes live.
+        if (hlabel.value !== meet.heat.label || Number(hdist.value) !== meet.heat.distance) await save();
+        await post('start', { t });
+        startbtn.disabled = false;
+      });
+    });
+    return;
+  }
+
+  shell(`starter-live:${h.id}`, () => `
+    <div class="card">
+      <span class="pill live" id="spill">Running</span>
+      <div style="margin-top:8px;font-weight:700">${heatTitle(meet, h)}</div>
+      <div class="clock" data-clock></div>
+      <table><thead><tr><th>Lane</th><th>Timers</th><th>Lap</th><th class="num">Time</th></tr></thead><tbody id="sstatus"></tbody></table>
+    </div>
+    <div class="card stack">
+      <h2 style="margin-top:0">Next heat</h2>
+      <input id="nlabel" value="${esc(nextLabel(h.label))}">
+      <select id="ndist">${distanceOptions(h.distance)}</select>
+      <button id="nextbtn">Save results &amp; set up next heat</button>
+    </div>
+    <button class="danger" id="recallbtn">Recall (false start) — clear this heat</button>`, () => {
+    const [nlabel, ndist, nextbtn, recallbtn] = ['nlabel', 'ndist', 'nextbtn', 'recallbtn'].map((id) => document.getElementById(id));
+    recallbtn.onclick = () => confirm('Clear all times for this heat and restart?') && post('recall');
+    nextbtn.onclick = () => {
+      const open = results(meet, meet.heat).filter((x) => x.timers > 0 && x.final == null);
+      if (open.length && !confirm(`Lane${open.length > 1 ? 's' : ''} ${open.map((x) => x.lane).join(', ')} not finished. Move on anyway?`)) return;
+      post('next', { label: nlabel.value, distance: Number(ndist.value) });
+    };
+  });
+
+  const laps = lapsFor(meet, h);
+  const rows = results(meet, h);
+  document.getElementById('spill').textContent = rows.some((x) => x.timers) && rows.filter((x) => x.timers).every((x) => x.final != null) ? 'All finished' : 'Running';
+  document.getElementById('sstatus').innerHTML = rows.map((x) => `
+    <tr><td><b>${x.lane}</b></td>
+      <td>${x.timers ? `${x.finished}/${x.timers} done` : '<span class="muted">—</span>'}</td>
+      <td>${x.timers ? (x.final != null ? 'Done' : `${x.splits.length + 1}${laps ? '/' + laps : ''}`) : ''}</td>
+      <td class="num">${fmt(x.final)}</td></tr>`).join('');
+}
+
+// ----- Timer -----
+function viewLanePicker(r) {
+  shell('lanes:' + r.code, () => `
+    <h1>Pick your lane</h1>
+    <div class="lanegrid">${Array.from({ length: meet.lanes }, (_, i) =>
+      `<button onclick="location.hash='#/${meet.code}/timer/${i + 1}'">${i + 1}</button>`).join('')}</div>
+    <p class="muted small">Up to 3 timers can share a lane; the official time uses the middle time (or the average of two).</p>`);
+}
+
+let lastTap = 0, pending = false;
+function viewTimer(r) {
+  const h = meet.heat;
+  shell(`timer:${r.lane}:${h.id}`, () => `
+    <div class="center">
+      <div style="font-size:28px;font-weight:800">Lane ${r.lane}</div>
+      <div class="muted">${heatTitle(meet, h)}</div>
+      <div class="clock" data-clock></div>
+      <div id="tstatus" class="muted" style="margin-bottom:10px"></div>
+    </div>
+    <button class="big split" id="tapbtn"></button>
+    <div class="row" style="margin-top:10px">
+      <button class="secondary" id="finishbtn">Finish now</button>
+      <button class="secondary" id="undobtn">Undo last</button>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <table class="split-list"><thead><tr><th>Lap</th><th class="num">Split</th><th class="num">Lap time</th></tr></thead><tbody id="tsplits"></tbody></table>
+    </div>
+    <a class="btn secondary" href="#/${meet.code}/timer">Change lane</a>`, () => {
+    const [tapbtn, finishbtn, undobtn] = ['tapbtn', 'finishbtn', 'undobtn'].map((id) => document.getElementById(id));
+    const record = async (kind) => {
+      const t = now();                                  // capture the instant of the tap first
+      if (pending || t - lastTap < LANE_DEBOUNCE_MS) return;
+      lastTap = t; pending = true; buzz();
+      await post(kind, { lane: r.lane, cid, t });
+      pending = false;
+    };
+    tapbtn.addEventListener('pointerdown', (e) => { e.preventDefault(); record(tapbtn.dataset.kind); });
+    finishbtn.onclick = () => record('finish');
+    undobtn.onclick = () => confirm('Remove your last recorded time?') && post('undo', { lane: r.lane, cid });
+  });
+
+  const mine = h.lanes?.[r.lane]?.timers?.[cid] || { splits: [], final: null };
+  const lane = laneSummary(h.lanes?.[r.lane]);
+  const laps = lapsFor(meet, h);
+  const lap = mine.splits.length + 1;
+  const isLast = laps && lap >= laps;
+  const tap = document.getElementById('tapbtn');
+
+  if (!h.startedAt) {
+    tap.className = 'big'; tap.disabled = true; tap.dataset.kind = '';
+    tap.innerHTML = 'Waiting for start…';
+  } else if (mine.final != null) {
+    tap.className = 'big'; tap.disabled = true; tap.dataset.kind = '';
+    tap.innerHTML = `${fmt(mine.final)}<small>Finished — waiting for next heat</small>`;
+  } else {
+    tap.disabled = false;
+    tap.dataset.kind = isLast ? 'finish' : 'split';
+    tap.className = 'big ' + (isLast ? 'finish' : 'split');
+    tap.innerHTML = isLast ? `FINISH<small>Lap ${lap}${laps ? ' of ' + laps : ''}</small>` : `SPLIT<small>End of lap ${lap}${laps ? ' of ' + laps : ''}</small>`;
+  }
+  document.getElementById('finishbtn').disabled = !h.startedAt || mine.final != null || isLast;
+  document.getElementById('undobtn').disabled = !mine.splits.length && mine.final == null;
+  document.getElementById('tstatus').textContent =
+    lane.timers > 1 ? `${lane.timers} timers on this lane` + (lane.final != null ? ` · official ${fmt(lane.final)}` : '') : '';
+
+  const all = [...mine.splits, ...(mine.final != null ? [mine.final] : [])];
+  document.getElementById('tsplits').innerHTML = all.map((s, i) => `
+    <tr><td>${i === mine.splits.length ? 'Final' : i + 1}</td><td class="num">${fmt(s)}</td><td class="num">${fmt(s - (all[i - 1] || 0))}</td></tr>`).join('')
+    || '<tr><td colspan="3" class="muted">No times yet</td></tr>';
+}
+
+// ----- Scoreboard -----
+function resultsTable(heat, live) {
+  const laps = lapsFor(meet, heat);
+  let rows = results(meet, heat);
+  if (!live) rows = rows.filter((x) => x.timers).sort((a, b) => (a.place ?? 99) - (b.place ?? 99) || a.lane - b.lane);
+  if (!rows.length) return '<p class="muted">No times recorded.</p>';
+  return `<table><thead><tr>
+    ${live ? '<th>Lane</th>' : '<th>Place</th><th>Lane</th>'}
+    ${live ? '<th>Lap</th>' : ''}<th>Splits</th><th class="num">Time</th>${live ? '<th class="num">Place</th>' : ''}
+    </tr></thead><tbody>${rows.map((x) => {
+      const lapCell = !x.timers ? '' : x.final != null ? '✓' : `${x.splits.length + 1}${laps ? '/' + laps : ''}`;
+      const splits = x.splits.map((s, i) => `${fmt(s)} <span style="opacity:.6">(${fmt(s - (x.splits[i - 1] || 0))})</span>`).join(' · ');
+      const place = x.place ? `<span class="${x.place === 1 ? 'place1' : ''}">${x.place}</span>` : '';
+      const dots = live && x.timers ? `<div class="timerdots small">${'●'.repeat(x.finished)}${'○'.repeat(x.timers - x.finished)}</div>` : '';
+      return `<tr>
+        ${live ? `<td class="lane">${x.lane}</td>` : `<td>${place}</td><td>${x.lane}</td>`}
+        ${live ? `<td>${lapCell}${dots}</td>` : ''}
+        <td class="splits">${splits}</td>
+        <td class="num"><b>${fmt(x.final) || (live && x.splits.length ? `<span class="muted">${fmt(x.splits.at(-1))}</span>` : '')}</b></td>
+        ${live ? `<td class="num">${place}</td>` : ''}</tr>`;
+    }).join('')}</tbody></table>`;
+}
+
+function viewBoard(r) {
+  shell('board:' + r.code, () => `
+    <div class="board">
+      <div class="card">
+        <div class="center"><span class="pill" id="bpill"></span></div>
+        <div class="heatname" id="btitle"></div>
+        <div class="clock" data-clock></div>
+        <div id="blive"></div>
+      </div>
+      <h2>Results</h2>
+      <div id="bhist"></div>
+    </div>`);
+  const h = meet.heat;
+  const rows = results(meet, h).filter((x) => x.timers);
+  const done = h.startedAt && rows.length && rows.every((x) => x.final != null);
+  const pill = document.getElementById('bpill');
+  pill.className = 'pill ' + (done ? 'done' : h.startedAt ? 'live' : '');
+  pill.textContent = done ? 'Final' : h.startedAt ? 'Live' : 'Up next';
+  document.getElementById('btitle').innerHTML = heatTitle(meet, h);
+  document.getElementById('blive').innerHTML = resultsTable(h, true);
+
+  // History rarely changes; only rebuild when it does, so open <details> stay open.
+  const hist = document.getElementById('bhist');
+  const histKey = meet.history.length + ':' + (meet.history[0]?.id || '');
+  if (hist.dataset.key !== histKey) {
+    hist.dataset.key = histKey;
+    hist.innerHTML = meet.history.map((hh, i) => `
+      <details class="card" ${i === 0 ? 'open' : ''}>
+        <summary>${heatTitle(meet, hh)}</summary>
+        ${resultsTable(hh, false)}
+      </details>`).join('') || '<p class="muted">Completed heats will appear here.</p>';
+  }
+}
+
+// ---------- running clocks ----------
+function frame() {
+  if (meet) {
+    const els = document.querySelectorAll('[data-clock]');
+    if (els.length) {
+      const text = fmt(heatClock(meet, meet.heat)) || '0.00';
+      els.forEach((el) => el.textContent !== text && (el.textContent = text));
+    }
+  }
+  requestAnimationFrame(frame);
+}
+
+// Keep phone screens awake where supported (needs HTTPS).
+async function wakeLock() {
+  try { if (navigator.wakeLock && route().role) await navigator.wakeLock.request('screen'); } catch {}
+}
+document.addEventListener('visibilitychange', () => !document.hidden && (wakeLock(), syncClock()));
+document.addEventListener('click', wakeLock, { once: true });
+
+syncClock().then(render);
+setInterval(syncClock, 60000);
+render();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
