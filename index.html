@@ -91,6 +91,7 @@
   .recent-row a { flex: 1; color: inherit; text-decoration: none; min-width: 0; }
   .recent-row button { width: auto; padding: 6px 12px; font-size: 20px; line-height: 1; }
   details summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
+  tr.faded { opacity: .3; }
   .split-list td { font-size: 18px; }
 </style>
 </head>
@@ -222,7 +223,8 @@ function laneSummary(laneData) {
 
 function results(meet, heat) {
   const rows = [];
-  for (let lane = 1; lane <= meet.lanes; lane++) rows.push({ lane, ...laneSummary(heat.lanes?.[lane]) });
+  const empty = heat.empty || [];
+  for (let lane = 1; lane <= meet.lanes; lane++) rows.push({ lane, empty: empty.includes(lane), ...laneSummary(heat.lanes?.[lane]) });
   const finals = rows.filter((r) => r.final != null).map((r) => r.final).sort((a, b) => a - b);
   for (const r of rows) r.place = r.final != null ? finals.indexOf(r.final) + 1 : null;
   return rows;
@@ -472,8 +474,8 @@ function viewStarter(r) {
   const rows = results(meet, h);
   document.getElementById('spill').textContent = rows.some((x) => x.timers) && rows.filter((x) => x.timers).every((x) => x.final != null) ? 'All finished' : 'Running';
   document.getElementById('sstatus').innerHTML = rows.map((x) => `
-    <tr><td><b>${x.lane}</b></td>
-      <td>${x.timers ? `${x.finished}/${x.timers} done` : '<span class="muted">—</span>'}</td>
+    <tr class="${x.empty ? 'faded' : ''}"><td><b>${x.lane}</b></td>
+      <td>${x.empty ? 'Empty' : x.timers ? `${x.finished}/${x.timers} done` : '<span class="muted">—</span>'}</td>
       <td>${x.timers ? (x.final != null ? 'Done' : `${x.splits.length + 1}${laps ? '/' + laps : ''}`) : ''}</td>
       <td class="num">${fmt(x.final)}</td></tr>`).join('');
 }
@@ -502,11 +504,12 @@ function viewTimer(r) {
       <button class="secondary" id="finishbtn">Finish now</button>
       <button class="secondary" id="undobtn">Undo last</button>
     </div>
+    <button class="secondary" id="emptybtn" style="margin-top:10px"></button>
     <div class="card" style="margin-top:16px">
       <table class="split-list"><thead><tr><th>Lap</th><th class="num">Split</th><th class="num">Lap time</th></tr></thead><tbody id="tsplits"></tbody></table>
     </div>
     <a class="btn secondary" href="#/${meet.code}/timer">Change lane</a>`, () => {
-    const [tapbtn, finishbtn, undobtn] = ['tapbtn', 'finishbtn', 'undobtn'].map((id) => document.getElementById(id));
+    const [tapbtn, finishbtn, undobtn, emptybtn] = ['tapbtn', 'finishbtn', 'undobtn', 'emptybtn'].map((id) => document.getElementById(id));
     const record = async (kind) => {
       const t = now();                                  // capture the instant of the tap first
       if (pending || t - lastTap < LANE_DEBOUNCE_MS) return;
@@ -517,6 +520,7 @@ function viewTimer(r) {
     tapbtn.addEventListener('pointerdown', (e) => { e.preventDefault(); record(tapbtn.dataset.kind); });
     finishbtn.onclick = () => record('finish');
     undobtn.onclick = () => confirm('Remove your last recorded time?') && post('undo', { lane: r.lane, cid });
+    emptybtn.onclick = () => post('empty', { lane: r.lane, empty: !(meet.heat.empty || []).includes(r.lane) });
   });
 
   const mine = h.lanes?.[r.lane]?.timers?.[cid] || { splits: [], final: null };
@@ -524,9 +528,14 @@ function viewTimer(r) {
   const laps = lapsFor(meet, h);
   const lap = mine.splits.length + 1;
   const isLast = laps && lap >= laps;
+  const isEmpty = (h.empty || []).includes(r.lane);
+  const laneHasTimes = lane.splits.length > 0 || lane.finished > 0;
   const tap = document.getElementById('tapbtn');
 
-  if (!h.startedAt) {
+  if (isEmpty) {
+    tap.className = 'big'; tap.disabled = true; tap.dataset.kind = '';
+    tap.innerHTML = 'EMPTY LANE<small>No swimmer this heat</small>';
+  } else if (!h.startedAt) {
     tap.className = 'big'; tap.disabled = true; tap.dataset.kind = '';
     tap.innerHTML = 'Waiting for start…';
   } else if (mine.final != null) {
@@ -538,7 +547,10 @@ function viewTimer(r) {
     tap.className = 'big ' + (isLast ? 'finish' : 'split');
     tap.innerHTML = isLast ? `FINISH<small>Lap ${lap}${laps ? ' of ' + laps : ''}</small>` : `SPLIT<small>End of lap ${lap}${laps ? ' of ' + laps : ''}</small>`;
   }
-  document.getElementById('finishbtn').disabled = !h.startedAt || mine.final != null || isLast;
+  document.getElementById('finishbtn').disabled = isEmpty || !h.startedAt || mine.final != null || isLast;
+  const emptyBtn = document.getElementById('emptybtn');
+  emptyBtn.textContent = isEmpty ? 'Lane marked empty — tap to undo' : 'Empty lane';
+  emptyBtn.disabled = !isEmpty && laneHasTimes;
   document.getElementById('undobtn').disabled = !mine.splits.length && mine.final == null;
   document.getElementById('tstatus').textContent =
     lane.timers > 1 ? `${lane.timers} timers on this lane` + (lane.final != null ? ` · official ${fmt(lane.final)}` : '') : '';
@@ -559,11 +571,11 @@ function resultsTable(heat, live) {
     ${live ? '<th>Lane</th>' : '<th>Place</th><th>Lane</th>'}
     ${live ? '<th>Lap</th>' : ''}<th>Splits</th><th class="num">Time</th>${live ? '<th class="num">Place</th>' : ''}
     </tr></thead><tbody>${rows.map((x) => {
-      const lapCell = !x.timers ? '' : x.final != null ? '✓' : `${x.splits.length + 1}${laps ? '/' + laps : ''}`;
+      const lapCell = x.empty ? 'Empty' : !x.timers ? '' : x.final != null ? '✓' : `${x.splits.length + 1}${laps ? '/' + laps : ''}`;
       const splits = x.splits.map((s, i) => `${fmt(s)} <span style="opacity:.6">(${fmt(s - (x.splits[i - 1] || 0))})</span>`).join(' · ');
       const place = x.place ? `<span class="${x.place === 1 ? 'place1' : ''}">${x.place}</span>` : '';
       const dots = live && x.timers ? `<div class="timerdots small">${'●'.repeat(x.finished)}${'○'.repeat(x.timers - x.finished)}</div>` : '';
-      return `<tr>
+      return `<tr class="${live && x.empty ? 'faded' : ''}">
         ${live ? `<td class="lane">${x.lane}</td>` : `<td>${place}</td><td>${x.lane}</td>`}
         ${live ? `<td>${lapCell}${dots}</td>` : ''}
         <td class="splits">${splits}</td>

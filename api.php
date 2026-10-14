@@ -7,6 +7,7 @@
 // POST api.php?a=<action>&code=ABCD  {...}                 -> { ok, meet }
 //      actions: start {t} | recall | next {label,distance} | setup {label,distance}
 //               split {lane,cid,t} | finish {lane,cid,t} | undo {lane,cid}
+//               empty {lane,empty}   (mark a lane as having no swimmer this heat)
 
 header('Content-Type: application/json');
 header('Cache-Control: no-store');
@@ -40,6 +41,7 @@ function new_heat($label, $distance) {
         'distance' => max(0, (int) $distance),
         'startedAt' => null,
         'lanes' => new stdClass(),
+        'empty' => [],
     ];
 }
 
@@ -61,6 +63,7 @@ function &timer_entry(&$meet, $body) {
     if (!$heat['startedAt']) fail(409, 'Heat has not started');
     $lane = (string) (int) ($body['lane'] ?? 0);
     if ($lane < 1 || $lane > $meet['lanes']) fail(400, 'Bad lane');
+    if (in_array((int) $lane, $heat['empty'] ?? [], true)) fail(409, 'Lane is marked empty');
     $cid = preg_replace('/[^a-zA-Z0-9]/', '', (string) ($body['cid'] ?? ''));
     if ($cid === '') fail(400, 'Missing timer id');
 
@@ -172,6 +175,20 @@ switch ($action) {
         $e = &timer_entry($meet, $body);
         if ($e['final'] !== null) fail(409, 'Already finished');
         $e['final'] = elapsed($meet, $body['t'] ?? null);
+        break;
+
+    case 'empty':
+        $lane = (int) ($body['lane'] ?? 0);
+        if ($lane < 1 || $lane > $meet['lanes']) fail(400, 'Bad lane');
+        $empty = array_values(array_diff($meet['heat']['empty'] ?? [], [$lane]));
+        if (!empty($body['empty'])) {
+            foreach (($meet['heat']['lanes'][$lane]['timers'] ?? []) as $t) {
+                if ($t['splits'] || $t['final'] !== null) fail(409, 'Lane already has times recorded');
+            }
+            $empty[] = $lane;
+            sort($empty);
+        }
+        $meet['heat']['empty'] = $empty;
         break;
 
     case 'undo':
