@@ -78,6 +78,11 @@
     padding: 10px 16px; border-radius: 8px; font-weight: 600; display: none; z-index: 10; max-width: 90vw; }
   .conn { width: 10px; height: 10px; border-radius: 50%; background: var(--go); display: inline-block; }
   .conn.off { background: var(--stop); }
+  .sync { display: inline-block; width: auto; padding: 2px 8px; margin-left: 6px; border-radius: 99px; font-size: 12px;
+    font-weight: 700; background: rgba(255,255,255,.2); color: #fff; vertical-align: middle; }
+  .sync.good { background: var(--go); }
+  .sync.ok { background: var(--warn); }
+  .sync.bad { background: var(--stop); }
 
   /* Scoreboard */
   .board .clock { font-size: clamp(56px, 10vw, 120px); }
@@ -110,20 +115,52 @@ const LANE_DEBOUNCE_MS = 1500;      // ignore a second tap within this window (a
 const DISTANCES = { yd: [25, 50, 100, 200, 500, 1000, 1650], m: [25, 50, 100, 200, 400, 800, 1500] };
 
 // ---------- clock sync: phones measure their offset from the server clock ----------
+// Local time comes from the browser's steady timer, so the phone adjusting its own
+// clock mid-race can't shift a result. Each sync takes several round trips and keeps
+// the fastest one; its error is at most half that round trip.
+const SYNC_SAMPLES = 10;
+const SYNC_KEEP_MS = 5 * 60000;     // a good sync is kept over a noisier one for this long
+const localNow = () => performance.timeOrigin + performance.now();
 let offset = 0;
-const now = () => Date.now() + offset;
-async function syncClock() {
+const sync = { err: null, at: 0, busy: false };
+const now = () => localNow() + offset;
+// Only send our timestamp once synced; otherwise the server uses its own arrival time.
+const stamp = (t) => (sync.err != null ? t : null);
+
+async function syncClock(force = false) {
+  if (sync.busy) return;
+  sync.busy = true;
+  updateHeader();
   let best = null;
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < SYNC_SAMPLES; i++) {
     try {
-      const t0 = Date.now();
+      const t0 = localNow();
       const { now: s } = await (await fetch(`${API}?a=time&_=${t0}`, { cache: 'no-store' })).json();
-      const t1 = Date.now();
+      const t1 = localNow();
       if (!best || t1 - t0 < best.rtt) best = { rtt: t1 - t0, off: s - (t0 + t1) / 2 };
     } catch { /* try again */ }
   }
-  if (best) offset = best.off;
+  sync.busy = false;
+  if (best) {
+    const err = best.rtt / 2;
+    if (force || sync.err == null || err <= sync.err * 1.5 || localNow() - sync.at > SYNC_KEEP_MS) {
+      offset = best.off;
+      sync.err = err;
+      sync.at = localNow();
+    }
+  }
+  updateHeader();
 }
+
+function syncBadge() {
+  if (sync.err == null) {
+    return `<button class="sync ${sync.busy ? '' : 'bad'}" id="syncbadge" title="Tap to re-sync">${sync.busy ? 'Syncing…' : 'No sync'}</button>`;
+  }
+  const level = sync.err <= 25 ? 'good' : sync.err <= 75 ? 'ok' : 'bad';
+  const secs = Math.max(0.01, sync.err / 1000).toFixed(2);
+  return `<button class="sync ${level}" id="syncbadge" title="Clock sync accuracy — tap to re-sync">${sync.busy ? 'Syncing…' : `Sync ±${secs}s`}</button>`;
+}
+document.addEventListener('click', (e) => e.target.closest('#syncbadge') && syncClock(true));
 
 // ---------- helpers ----------
 const $app = document.getElementById('app');
@@ -327,6 +364,7 @@ function updateHeader() {
   const r = route();
   document.getElementById('hdr').innerHTML = meet && r.code
     ? `${esc(meet.name)} · <b>${meet.code}</b> <span class="conn ${online ? '' : 'off'}" title="${online ? 'Connected' : 'Offline'}"></span>`
+      + (r.role === 'starter' || r.role === 'timer' ? syncBadge() : '')
     : '';
 }
 
@@ -440,7 +478,7 @@ function viewStarter(r) {
         startbtn.disabled = true;
         // Make sure the latest label/distance are saved before the heat goes live.
         if (hlabel.value !== meet.heat.label || Number(hdist.value) !== meet.heat.distance) await save();
-        await post('start', { t });
+        await post('start', { t: stamp(t) });
         startbtn.disabled = false;
       });
     });
@@ -514,7 +552,7 @@ function viewTimer(r) {
       const t = now();                                  // capture the instant of the tap first
       if (pending || t - lastTap < LANE_DEBOUNCE_MS) return;
       lastTap = t; pending = true; buzz();
-      await post(kind, { lane: r.lane, cid, t });
+      await post(kind, { lane: r.lane, cid, t: stamp(t) });
       pending = false;
     };
     tapbtn.addEventListener('pointerdown', (e) => { e.preventDefault(); record(tapbtn.dataset.kind); });
@@ -634,7 +672,8 @@ function frame() {
 async function wakeLock() {
   try { if (navigator.wakeLock && route().role) await navigator.wakeLock.request('screen'); } catch {}
 }
-document.addEventListener('visibilitychange', () => !document.hidden && (wakeLock(), syncClock()));
+// After the phone sleeps the steady timer may have paused, so the old offset can't be trusted.
+document.addEventListener('visibilitychange', () => !document.hidden && (wakeLock(), syncClock(true)));
 document.addEventListener('click', wakeLock, { once: true });
 
 syncClock().then(render);

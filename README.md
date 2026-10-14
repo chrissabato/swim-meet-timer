@@ -8,6 +8,7 @@ Phone-based swim meet timing with a live scoreboard. Plain HTML/JS + one PHP fil
 
 Official time (per split and final) follows USA Swimming rules: 3 times → middle, 2 → average (truncated to hundredths), 1 → that time.
 Phones sync to the server clock, and each tap is time-stamped on the phone at the moment of the tap, so network lag doesn't affect results.
+The starter and timer screens show sync accuracy in the header (green ≤ ±0.025s, amber ≤ ±0.075s, red worse); tap it to re-sync.
 
 ## Deploy (Apache + PHP on a DigitalOcean droplet)
 
