@@ -19,6 +19,9 @@ The starter and timer screens show sync accuracy in the header (green ≤ ±0.02
 3. Make sure Apache honors `data/.htaccess` (`AllowOverride All`), or add
    `<Directory /var/www/html/meet/data> Require all denied </Directory>` to the site config.
 4. Open `https://your-domain/meet/`, create a meet, and share the 4-letter code or link.
+5. Optional admin page (list and delete all meets): copy `config.sample.php` to `config.php` on the server and set
+   `ADMIN_PASSWORD`. Then open `https://your-domain/meet/#/admin` (also linked at the bottom of the home page).
+   `config.php` is kept out of git; without it the admin page stays off.
 
 Use HTTPS if you can: it lets phones keep their screens awake during a heat (Wake Lock API).
 

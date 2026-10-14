@@ -440,6 +440,7 @@ let shellKey = null;
 function render() {
   const r = route();
   if (!r.code) { stopPolling(); updateHeader(); return shell('home', viewHome); }
+  if (r.code === 'ADMIN') { stopPolling(); updateHeader(); return viewAdmin(); }
   startPolling(r.code);
   updateHeader();
   if (!meet) return shell('loading', () => '<p class="muted center">Connecting…</p>');
@@ -504,11 +505,86 @@ function viewHome() {
       </select>
       <div style="margin-top:14px"><button>Create meet</button></div>
     </form>
-  </div>`;
+  </div>
+  <p class="center small"><a class="muted" href="#/admin">Admin</a></p>`;
+}
+
+// ----- Admin -----
+// The password is remembered in this browser and sent with each admin call.
+const ADMIN_KEY = 'smt-admin';
+const adminPassword = () => { try { return localStorage.getItem(ADMIN_KEY) || ''; } catch { return ''; } };
+function setAdminPassword(pw) {
+  try { pw ? localStorage.setItem(ADMIN_KEY, pw) : localStorage.removeItem(ADMIN_KEY); } catch {}
+}
+async function adminCall(action, body = {}) {
+  try {
+    const res = await fetch(`${API}?a=${action}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: adminPassword(), ...body }),
+    });
+    return { status: res.status, data: await res.json() };
+  } catch {
+    return { status: 0, data: { error: 'Network problem' } };
+  }
+}
+
+function viewAdmin() {
+  if (!adminPassword()) {
+    return shell('admin-login', `
+      <div class="card">
+        <h1>Admin</h1>
+        <form id="adminlogin" class="stack">
+          <input id="adminpw" type="password" placeholder="Admin password" autocomplete="current-password" required>
+          <button>Sign in</button>
+        </form>
+      </div>`);
+  }
+  if (!shell('admin', `
+    <div class="card">
+      <div class="heatcard-head" style="margin-bottom:0">
+        <h1 style="margin:0">All meets</h1>
+        <button class="secondary" id="adminout" style="width:auto;margin-left:auto;padding:6px 12px">Sign out</button>
+      </div>
+      <div id="adminlist" style="margin-top:12px"><p class="muted">Loading…</p></div>
+    </div>`, () => {
+    document.getElementById('adminout').onclick = () => { setAdminPassword(''); shellKey = null; render(); };
+  })) return;
+  loadAdmin();
+}
+
+async function loadAdmin() {
+  const { status, data } = await adminCall('admin-list');
+  if (status === 401) { setAdminPassword(''); toast('Wrong password'); shellKey = null; return render(); }
+  const el = document.getElementById('adminlist');
+  if (!el) return;
+  if (status !== 200) { el.innerHTML = `<p class="muted">${esc(data.error || 'Could not load meets')}</p>`; return; }
+  const when = (t) => new Date(t).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  el.innerHTML = data.meets.map((m) => `
+    <div class="recent-row">
+      <a href="#/${esc(m.code)}">
+        <b>${esc(m.name)}</b> <span class="pill">${esc(m.code)}</span>
+        <div class="muted small">${m.date ? meetDate(m.date) + ' · ' : ''}${m.heats} heat${m.heats === 1 ? '' : 's'} · ${m.lanes} lanes · ${m.pool} ${esc(m.unit)}</div>
+        <div class="muted small">Last activity ${when(m.updated)}</div>
+      </a>
+      <button class="danger" style="width:auto;padding:8px 12px;font-size:14px" data-delete="${esc(m.code)}" data-name="${esc(m.name)}">Delete</button>
+    </div>`).join('') || '<p class="muted">No meets.</p>';
+  el.querySelectorAll('[data-delete]').forEach((b) => (b.onclick = async () => {
+    const { delete: code, name } = b.dataset;
+    if (!confirm(`Delete "${name}" (${code})? This permanently removes all of its results.`)) return;
+    b.disabled = true;
+    const res = await adminCall('admin-delete', { code });
+    if (res.status !== 200) { toast(res.data.error || 'Delete failed'); b.disabled = false; return; }
+    saveRecent(recentMeets().filter((x) => x.code !== code));
+    loadAdmin();
+  }));
 }
 document.addEventListener('submit', async (e) => {
   e.preventDefault();
-  if (e.target.id === 'join') {
+  if (e.target.id === 'adminlogin') {
+    setAdminPassword(document.getElementById('adminpw').value);
+    shellKey = null;
+    render();
+  } else if (e.target.id === 'join') {
     location.hash = '#/' + document.getElementById('joincode').value.trim().toUpperCase();
   } else if (e.target.id === 'create') {
     const [pool, unit] = document.getElementById('mpool').value.split('-');

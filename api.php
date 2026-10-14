@@ -8,6 +8,9 @@
 //      actions: start {t} | recall | next {event,heat,stroke,distance,gender} | setup {any of those}
 //               split {lane,cid,t} | finish {lane,cid,t} | undo {lane,cid}
 //               empty {lane,empty}   (mark a lane as having no swimmer this heat)
+// POST api.php?a=admin-list    {password}        -> { meets: [...] }
+// POST api.php?a=admin-delete  {password,code}   -> { ok }
+//      The admin password is set in config.php (see config.sample.php).
 
 header('Content-Type: application/json');
 header('Cache-Control: no-store');
@@ -29,6 +32,16 @@ function fail($status, $msg) {
     http_response_code($status);
     echo json_encode(['error' => $msg]);
     exit;
+}
+
+// Admin calls need the password from config.php; without one, admin is off.
+function require_admin($body) {
+    if (is_file(__DIR__ . '/config.php')) require_once __DIR__ . '/config.php';
+    if (!defined('ADMIN_PASSWORD') || ADMIN_PASSWORD === '') fail(403, 'Admin is not set up: add a password in config.php');
+    if (!hash_equals(ADMIN_PASSWORD, (string) ($body['password'] ?? ''))) {
+        usleep(500000); // slow down password guessing
+        fail(401, 'Wrong password');
+    }
 }
 
 function meet_path($code) {
@@ -110,6 +123,38 @@ $body = [];
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $body = json_decode(file_get_contents('php://input'), true);
     if (!is_array($body)) $body = [];
+}
+
+if ($action === 'admin-list' || $action === 'admin-delete') {
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') fail(405, 'POST required');
+    require_admin($body);
+
+    if ($action === 'admin-delete') {
+        $path = meet_path(strtoupper((string) ($body['code'] ?? '')));
+        if (!file_exists($path)) fail(404, 'Meet not found');
+        unlink($path);
+        echo '{"ok":true}';
+        exit;
+    }
+
+    $meets = [];
+    foreach (glob(DATA_DIR . '/*.json') as $f) {
+        $m = json_decode(file_get_contents($f), true);
+        if (!is_array($m) || !isset($m['code'])) continue;
+        $meets[] = [
+            'code' => $m['code'],
+            'name' => $m['name'] ?? '',
+            'date' => $m['date'] ?? '',
+            'lanes' => $m['lanes'] ?? 0,
+            'pool' => $m['pool'] ?? 0,
+            'unit' => $m['unit'] ?? '',
+            'heats' => count($m['history'] ?? []) + (empty($m['heat']['startedAt']) ? 0 : 1),
+            'updated' => filemtime($f) * 1000,
+        ];
+    }
+    usort($meets, function ($a, $b) { return $b['updated'] - $a['updated']; });
+    echo json_encode(['meets' => $meets]);
+    exit;
 }
 
 if ($action === 'create') {
