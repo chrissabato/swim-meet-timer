@@ -3,9 +3,9 @@
 //
 // GET  api.php?a=time                      -> { now }  (server clock, ms; phones sync to this)
 // GET  api.php?a=state&code=ABCD&v=12      -> meet JSON, or { same: true } if version unchanged
-// POST api.php?a=create  {name,lanes,pool,unit}            -> { code }
+// POST api.php?a=create  {name,lanes,pool,unit,genders}            -> { code }
 // POST api.php?a=<action>&code=ABCD  {...}                 -> { ok, meet }
-//      actions: start {t} | recall | next {label,distance} | setup {label,distance}
+//      actions: start {t} | recall | next {event,heat,stroke,distance,gender} | setup {any of those}
 //               split {lane,cid,t} | finish {lane,cid,t} | undo {lane,cid}
 //               empty {lane,empty}   (mark a lane as having no swimmer this heat)
 
@@ -14,6 +14,8 @@ header('Cache-Control: no-store');
 
 const DATA_DIR = __DIR__ . '/data';
 const MAX_TIMERS_PER_LANE = 3;
+const STROKES = ['Free', 'Back', 'Breast', 'Fly', 'IM', 'Free Relay', 'Medley Relay'];
+const GENDERS = ['bg' => ['Boys', 'Girls'], 'mw' => ['Men', 'Women'], 'none' => []];
 
 // Trim user text to a max length (mbstring isn't always installed).
 function clip($s, $n) {
@@ -34,15 +36,31 @@ function meet_path($code) {
     return DATA_DIR . "/$code.json";
 }
 
-function new_heat($label, $distance) {
-    return [
+// Sets whichever heat fields are given, ignoring invalid values.
+function apply_heat_fields(&$heat, $f, $meet) {
+    if (isset($f['event'])) $heat['event'] = min(max((int) $f['event'], 1), 999);
+    if (isset($f['heat'])) $heat['heat'] = min(max((int) $f['heat'], 1), 999);
+    if (isset($f['stroke'])) $heat['stroke'] = in_array($f['stroke'], STROKES, true) ? $f['stroke'] : '';
+    if (isset($f['distance'])) $heat['distance'] = max(0, (int) $f['distance']);
+    if (isset($f['gender'])) {
+        $heat['gender'] = in_array($f['gender'], GENDERS[$meet['genders'] ?? 'none'] ?? [], true) ? $f['gender'] : '';
+    }
+}
+
+function new_heat($meet, $f = []) {
+    $heat = [
         'id' => now_ms(),
-        'label' => clip($label, 80),
-        'distance' => max(0, (int) $distance),
+        'event' => 1,
+        'heat' => 1,
+        'stroke' => '',
+        'gender' => '',
+        'distance' => 0,
         'startedAt' => null,
         'lanes' => new stdClass(),
         'empty' => [],
     ];
+    apply_heat_fields($heat, $f, $meet);
+    return $heat;
 }
 
 // Phones send timestamps already converted to the server clock. Anything far
@@ -102,16 +120,18 @@ if ($action === 'create') {
     } while (file_exists(meet_path($code)));
 
     $unit = ($body['unit'] ?? 'yd') === 'm' ? 'm' : 'yd';
+    $genders = (string) ($body['genders'] ?? '');
     $meet = [
         'code' => $code,
         'name' => clip($body['name'] ?? '', 80) ?: 'Swim Meet',
         'lanes' => min(max((int) ($body['lanes'] ?? 8), 1), 12),
         'pool' => min(max((int) ($body['pool'] ?? 25), 10), 100),
         'unit' => $unit,
+        'genders' => isset(GENDERS[$genders]) ? $genders : 'none',
         'version' => 1,
-        'heat' => new_heat('Event 1, Heat 1', 0),
         'history' => [],
     ];
+    $meet['heat'] = new_heat($meet);
     file_put_contents(meet_path($code), json_encode($meet), LOCK_EX);
     echo json_encode(['code' => $code]);
     exit;
@@ -155,14 +175,13 @@ switch ($action) {
 
     case 'setup':
         if ($meet['heat']['startedAt']) fail(409, 'Heat already started');
-        $meet['heat']['label'] = clip($body['label'] ?? '', 80);
-        $meet['heat']['distance'] = max(0, (int) ($body['distance'] ?? 0));
+        apply_heat_fields($meet['heat'], $body, $meet);
         break;
 
     case 'next':
         $h = $meet['heat'];
         if ($h['startedAt'] || !empty($h['lanes'])) array_unshift($meet['history'], $h);
-        $meet['heat'] = new_heat($body['label'] ?? '', $body['distance'] ?? $h['distance']);
+        $meet['heat'] = new_heat($meet, $body);
         break;
 
     case 'split':
