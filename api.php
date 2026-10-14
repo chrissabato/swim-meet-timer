@@ -3,7 +3,7 @@
 //
 // GET  api.php?a=time                      -> { now }  (server clock, ms; phones sync to this)
 // GET  api.php?a=state&code=ABCD&v=12      -> meet JSON, or { same: true } if version unchanged
-// POST api.php?a=create  {name,lanes,pool,unit,genders}            -> { code }
+// POST api.php?a=create  {name,date,lanes,pool,unit,genders}            -> { code }
 // POST api.php?a=<action>&code=ABCD  {...}                 -> { ok, meet }
 //      actions: start {t} | recall | next {event,heat,stroke,distance,gender} | setup {any of those}
 //               split {lane,cid,t} | finish {lane,cid,t} | undo {lane,cid}
@@ -124,6 +124,7 @@ if ($action === 'create') {
     $meet = [
         'code' => $code,
         'name' => clip($body['name'] ?? '', 80) ?: 'Swim Meet',
+        'date' => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($body['date'] ?? '')) ? $body['date'] : date('Y-m-d'),
         'lanes' => min(max((int) ($body['lanes'] ?? 8), 1), 12),
         'pool' => min(max((int) ($body['pool'] ?? 25), 10), 100),
         'unit' => $unit,

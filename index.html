@@ -258,7 +258,7 @@ function saveRecent(list) {
 }
 function rememberMeet(m) {
   const list = recentMeets().filter((x) => x.code !== m.code);
-  list.unshift({ code: m.code, name: m.name, lanes: m.lanes, pool: m.pool, unit: m.unit, opened: Date.now() });
+  list.unshift({ code: m.code, name: m.name, date: m.date, lanes: m.lanes, pool: m.pool, unit: m.unit, opened: Date.now() });
   saveRecent(list);
 }
 function forgetMeet(code) {
@@ -294,6 +294,13 @@ function showQr(link) {
   document.addEventListener('keydown', onKey);
   document.body.appendChild(el);
   el.requestFullscreen?.().catch(() => {}); // true full screen where supported; the overlay covers the page otherwise
+}
+
+// Meet date ("2026-10-18") as e.g. "Sat, Oct 18, 2026"; older meets have none.
+function meetDate(d) {
+  if (!d) return '';
+  const [y, m, day] = d.split('-').map(Number);
+  return new Date(y, m - 1, day).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 // Distances offered for a stroke in this meet's pool. IM and relays need a lap count divisible by 4.
@@ -467,7 +474,7 @@ function viewHome() {
       <div class="recent-row">
         <a href="#/${esc(x.code)}">
           <b>${esc(x.name)}</b> <span class="pill">${esc(x.code)}</span>
-          <div class="muted small">${x.lanes} lanes · ${x.pool} ${esc(x.unit)} · opened ${opened(x.opened)}</div>
+          <div class="muted small">${x.date ? meetDate(x.date) + ' · ' : ''}${x.lanes} lanes · ${x.pool} ${esc(x.unit)} · opened ${opened(x.opened)}</div>
         </a>
         <button class="secondary" title="Remove from list" aria-label="Remove ${esc(x.name)} from list"
           onclick="forgetMeet('${esc(x.code)}')">×</button>
@@ -485,6 +492,7 @@ function viewHome() {
     <h1>Create a meet</h1>
     <form id="create">
       <label>Meet name</label><input id="mname" placeholder="Saturday Dual Meet">
+      <label>Date</label><input id="mdate" type="date" value="${new Date().toLocaleDateString('en-CA')}">
       <div class="row">
         <div><label>Lanes</label><select id="mlanes">${[4,5,6,7,8,9,10].map((n) => `<option ${n === 6 ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
         <div><label>Pool length</label><select id="mpool">
@@ -506,6 +514,7 @@ document.addEventListener('submit', async (e) => {
     const [pool, unit] = document.getElementById('mpool').value.split('-');
     const res = await post('create', {
       name: document.getElementById('mname').value,
+      date: document.getElementById('mdate').value,
       lanes: Number(document.getElementById('mlanes').value), pool: Number(pool), unit,
       genders: document.getElementById('mgenders').value,
     }, '');
@@ -518,8 +527,9 @@ function viewRoles(r) {
     const link = location.href.split('#')[0] + '#/' + meet.code;
     return `
     <div class="card center">
-      <h1>${esc(meet.name)}</h1>
-      <div class="muted small">Meet code</div>
+      <h1 style="margin-bottom:4px">${esc(meet.name)}</h1>
+      ${meet.date ? `<div class="muted">${meetDate(meet.date)}</div>` : ''}
+      <div class="muted small" style="margin-top:12px">Meet code</div>
       <div class="code">${meet.code}</div>
       <div class="muted small" style="margin-top:6px">${meet.lanes} lanes · ${meet.pool} ${meet.unit} pool</div>
       <div class="small" style="margin-top:8px;word-break:break-all"><a href="${esc(link)}">${esc(link)}</a></div>
@@ -751,6 +761,8 @@ function resultsTable(heat) {
 
 function viewResults(r) {
   shell('results:' + r.code, () => `
+    <h1 style="margin-bottom:0">${esc(meet.name)}</h1>
+    <p class="muted" style="margin:2px 0 16px">${meet.date ? meetDate(meet.date) + ' · ' : ''}Results</p>
     <div class="card">
       <div class="heatcard-head"><span class="pill" id="rpill"></span><b id="rtitle"></b><span class="clockmini" data-clock id="rclock"></span></div>
       <div id="rcur"></div>
