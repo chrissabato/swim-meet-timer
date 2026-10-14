@@ -4,9 +4,11 @@ Phone-based swim meet timing with a live scoreboard. Plain HTML/JS + one PHP fil
 
 - **Starter** – types a heat label, picks the distance, taps START. Can recall (false start) or save results and set up the next heat.
 - **Timer** – picks a lane, taps SPLIT at each wall; the button turns into FINISH on the last lap. Up to 3 timers per lane.
-- **Scoreboard** – live clock, lap progress, splits, official times, places, and a history of completed heats.
+- **Scoreboard** – full-screen 16:9 display for a TV: live clock, lap, latest split, official times and places. After a heat is saved it keeps the final results up (with the next heat shown at the bottom) until the next START. Press F, double-click, or use the button that appears on mouse move to go full screen.
+- **Results** – the current heat plus every completed heat, with places, times, and all splits.
 
 Official time (per split and final) follows USA Swimming rules: 3 times → middle, 2 → average (truncated to hundredths), 1 → that time.
+Since these are hand times, everything is displayed truncated to tenths, and places go by those tenths (equal times tie).
 Phones sync to the server clock, and each tap is time-stamped on the phone at the moment of the tap, so network lag doesn't affect results.
 The starter and timer screens show sync accuracy in the header (green ≤ ±0.025s, amber ≤ ±0.075s, red worse); tap it to re-sync.
 

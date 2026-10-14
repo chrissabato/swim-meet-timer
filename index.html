@@ -84,13 +84,60 @@
   .sync.ok { background: var(--warn); }
   .sync.bad { background: var(--stop); }
 
-  /* Scoreboard */
-  .board .clock { font-size: clamp(56px, 10vw, 120px); }
-  .board .heatname { font-size: clamp(20px, 3vw, 34px); font-weight: 700; text-align: center; }
-  .board table td { font-size: clamp(16px, 2.2vw, 28px); padding: 10px 8px; }
-  .board table td.lane { font-weight: 800; width: 3em; }
-  .board .splits { font-size: clamp(12px, 1.4vw, 18px); }
-  .timerdots { letter-spacing: 2px; color: var(--accent); }
+  /* Results */
+  .heatcard-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+  .heatcard-head .clockmini { margin-left: auto; font: 700 22px/1 ui-monospace, Menlo, monospace; font-variant-numeric: tabular-nums; }
+
+  /* TV scoreboard: a 16:9 stage scaled to fit the screen. 1u = 1% of the stage width. */
+  body.tv { --u: min(1vw, 1.77778vh); background: #06121e; color: #f2f6fa; overflow: hidden; }
+  body.tv header { display: none; }
+  body.tv main { max-width: none; padding: 0; }
+  body.tv:not(.tv-ui-on) { cursor: none; }
+  .tv-wrap { width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; }
+  .tv-stage { width: calc(100 * var(--u)); height: calc(56.25 * var(--u)); padding: calc(1.6 * var(--u)) calc(2 * var(--u));
+    display: flex; flex-direction: column; gap: calc(1 * var(--u)); font-variant-numeric: tabular-nums;
+    --row: min(calc(var(--u) * 36 / var(--lanes)), calc(var(--u) * 6.5)); }
+  .tv-top { display: flex; align-items: center; gap: calc(2 * var(--u)); height: calc(10 * var(--u));
+    border-bottom: calc(.25 * var(--u)) solid #1d3a55; padding-bottom: calc(1 * var(--u)); }
+  .tv-titles { flex: 1; min-width: 0; }
+  .tv-meet { font-size: calc(1.6 * var(--u)); color: #8aa4bd; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tv-heat { font-size: calc(3.4 * var(--u)); font-weight: 800; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tv-sub { font-size: calc(1.7 * var(--u)); color: #8aa4bd; display: flex; align-items: center; gap: calc(1 * var(--u)); margin-top: calc(.3 * var(--u)); }
+  .tv-pill { font-size: calc(1.4 * var(--u)); font-weight: 800; letter-spacing: .1em; padding: calc(.3 * var(--u)) calc(1 * var(--u));
+    border-radius: calc(.5 * var(--u)); background: #24425f; color: #f2f6fa; }
+  .tv-pill.live { background: #e53935; }
+  .tv-pill.live::before { content: "● "; animation: tvpulse 1.2s infinite; }
+  .tv-pill.done { background: #2e9e57; }
+  @keyframes tvpulse { 50% { opacity: .25; } }
+  @media (prefers-reduced-motion: reduce) { .tv-pill.live::before { animation: none; } }
+  .tv-clock { font-size: calc(8 * var(--u)); font-weight: 800; line-height: 1; color: #fff; text-align: right; min-width: 4.6em; }
+  .tv-grid { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+  .tv-row { display: grid; grid-template-columns: 9% 14% 1fr 24% 12%; align-items: center; height: var(--row);
+    font-size: calc(var(--row) * .55); font-weight: 700; border-radius: calc(.6 * var(--u)); }
+  .tv-row > div { padding: 0 calc(1.2 * var(--u)); white-space: nowrap; overflow: hidden; }
+  #tvlanes .tv-row:nth-child(odd) { background: #0c2033; }
+  .tv-head { height: calc(3 * var(--u)); font-size: calc(1.4 * var(--u)); color: #8aa4bd; letter-spacing: .1em; text-transform: uppercase; }
+  .tv-row .c-lane { font-weight: 900; color: #3ec6ff; text-align: center; }
+  .tv-head .c-lane { color: inherit; }
+  .tv-row .c-lap small { color: #8aa4bd; font-size: .7em; }
+  .tv-row .c-split small { color: #8aa4bd; font-size: .65em; margin-left: .4em; }
+  .tv-row .c-time { text-align: right; font-weight: 800; }
+  .tv-row .c-place { text-align: center; }
+  .tv-row.empty, .tv-row.empty .c-lane { color: #4d6782; }
+  .tv-row .c-msg { grid-column: 2 / -1; font-size: .7em; letter-spacing: .1em; text-transform: uppercase; }
+  .tv-check { color: #35c46a; }
+  .medal { display: inline-block; min-width: 1.6em; line-height: 1.6em; border-radius: 50%; background: #24425f; text-align: center; font-size: .85em; }
+  .medal.m1 { background: #ffcc33; color: #1a1300; }
+  .medal.m2 { background: #c9d3dd; color: #10171e; }
+  .medal.m3 { background: #d08a4c; color: #1a0d00; }
+  .tv-foot { display: flex; align-items: center; gap: calc(1.5 * var(--u)); height: calc(3.6 * var(--u)); font-size: calc(1.7 * var(--u));
+    color: #8aa4bd; border-top: calc(.25 * var(--u)) solid #1d3a55; padding-top: calc(.8 * var(--u)); }
+  .tv-foot b { color: #f2f6fa; }
+  .tv-foot .tv-code { margin-left: auto; }
+  .tv-ui { position: fixed; top: 16px; left: 16px; display: flex; gap: 8px; opacity: 0; transition: opacity .3s; pointer-events: none; }
+  body.tv-ui-on .tv-ui { opacity: 1; pointer-events: auto; }
+  .tv-ui a, .tv-ui button { width: auto; padding: 8px 14px; font-size: 14px; background: rgba(255,255,255,.15); color: #fff; border-radius: 8px; }
   .recent-row { display: flex; align-items: center; gap: 10px; border-top: 1px solid var(--line); padding: 10px 0; }
   .recent-row:first-child { border-top: 0; padding-top: 0; }
   .recent-row a { flex: 1; color: inherit; text-decoration: none; min-width: 0; }
@@ -165,12 +212,15 @@ document.addEventListener('click', (e) => e.target.closest('#syncbadge') && sync
 // ---------- helpers ----------
 const $app = document.getElementById('app');
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+// Hand times: shown truncated to tenths (hundredths are kept for averaging but aren't meaningful).
+const tenths = (ms) => Math.floor(Math.max(0, ms) / 100);
 function fmt(ms) {
   if (ms == null) return '';
-  ms = Math.max(0, Math.floor(ms / 10) * 10);
-  const cs = (ms / 10) % 100, s = Math.floor(ms / 1000) % 60, m = Math.floor(ms / 60000);
-  return (m ? `${m}:${String(s).padStart(2, '0')}` : `${s}`) + '.' + String(cs).padStart(2, '0');
+  const t = tenths(ms), s = Math.floor(t / 10) % 60, m = Math.floor(t / 600);
+  return (m ? `${m}:${String(s).padStart(2, '0')}` : `${s}`) + '.' + (t % 10);
 }
+// Lap time from the displayed (tenths) splits, so the numbers on screen add up.
+const fmtLap = (ms, prev) => fmt((tenths(ms) - tenths(prev || 0)) * 100);
 function toast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg; t.style.display = 'block';
@@ -262,8 +312,9 @@ function results(meet, heat) {
   const rows = [];
   const empty = heat.empty || [];
   for (let lane = 1; lane <= meet.lanes; lane++) rows.push({ lane, empty: empty.includes(lane), ...laneSummary(heat.lanes?.[lane]) });
-  const finals = rows.filter((r) => r.final != null).map((r) => r.final).sort((a, b) => a - b);
-  for (const r of rows) r.place = r.final != null ? finals.indexOf(r.final) + 1 : null;
+  // Places go by the displayed tenths, so equal times tie (1, 2, 2, 4).
+  const finals = rows.filter((r) => r.final != null).map((r) => tenths(r.final));
+  for (const r of rows) r.place = r.final != null ? finals.filter((f) => f < tenths(r.final)).length + 1 : null;
   return rows;
 }
 
@@ -271,12 +322,23 @@ const lapsFor = (meet, heat) => (heat.distance && meet.pool ? Math.ceil(heat.dis
 const heatTitle = (meet, heat) =>
   esc(heat.label || 'Untitled heat') + (heat.distance ? ` · ${heat.distance} ${meet.unit} (${lapsFor(meet, heat)} laps)` : '');
 
-// Clock for a heat: stops once every lane with timers has an official final.
+// A heat is done once every lane with timers has an official final.
+function heatDone(meet, heat) {
+  const rows = results(meet, heat).filter((r) => r.timers > 0);
+  return !!heat.startedAt && rows.length > 0 && rows.every((r) => r.final != null);
+}
+
+// Clock for a heat: stops at the slowest final once the heat is done (or saved to history).
 function heatClock(meet, heat) {
   if (!heat.startedAt) return 0;
-  const rows = results(meet, heat).filter((r) => r.timers > 0);
-  if (rows.length && rows.every((r) => r.final != null)) return Math.max(...rows.map((r) => r.final));
+  if (heat !== meet.heat || heatDone(meet, heat)) return Math.max(0, ...results(meet, heat).map((r) => r.final ?? 0));
   return now() - heat.startedAt;
+}
+
+// The TV holds the last saved heat's results until the next heat starts.
+function boardHeat(meet) {
+  const held = !meet.heat.startedAt && meet.history[0];
+  return held ? { heat: meet.history[0], next: meet.heat } : { heat: meet.heat, next: null };
 }
 
 // ---------- server calls ----------
@@ -333,7 +395,8 @@ function applyMeet(m) {
 // #/CODE                choose role
 // #/CODE/starter        starter
 // #/CODE/timer[/lane]   timer
-// #/CODE/board          scoreboard
+// #/CODE/board          TV scoreboard
+// #/CODE/results        results
 function route() {
   const [code, role, lane] = location.hash.replace(/^#\/?/, '').split('/');
   return { code: (code || '').toUpperCase(), role: role || '', lane: Number(lane) || 0 };
@@ -349,11 +412,12 @@ function render() {
   startPolling(r.code);
   updateHeader();
   if (!meet) return shell('loading', () => '<p class="muted center">Connecting…</p>');
-  const views = { starter: viewStarter, timer: r.lane ? viewTimer : viewLanePicker, board: viewBoard };
+  const views = { starter: viewStarter, timer: r.lane ? viewTimer : viewLanePicker, board: viewBoard, results: viewResults };
   (views[r.role] || viewRoles)(r);
 }
 function shell(key, html, after) {
-  document.querySelector('main').classList.toggle('wide', key.startsWith('board'));
+  document.querySelector('main').classList.toggle('wide', key.startsWith('results'));
+  document.body.classList.toggle('tv', key.startsWith('board'));
   if (key === shellKey) return false;
   shellKey = key;
   $app.innerHTML = typeof html === 'function' ? html() : html;
@@ -437,7 +501,8 @@ function viewRoles(r) {
     <div class="roles">
       <a class="btn" style="background:var(--go)" href="#/${meet.code}/starter">Starter<small>Starts the clock for each heat</small></a>
       <a class="btn" href="#/${meet.code}/timer">Timer<small>Records splits and final time for a lane</small></a>
-      <a class="btn secondary" href="#/${meet.code}/board">Scoreboard<small>Live results for a TV or laptop</small></a>
+      <a class="btn secondary" href="#/${meet.code}/board">Scoreboard<small>Full-screen live display for a TV</small></a>
+      <a class="btn secondary" href="#/${meet.code}/results">Results<small>Current heat and all completed heats, with splits</small></a>
     </div>`;
   }, () => {
     const link = location.href.split('#')[0] + '#/' + meet.code;
@@ -595,73 +660,123 @@ function viewTimer(r) {
 
   const all = [...mine.splits, ...(mine.final != null ? [mine.final] : [])];
   document.getElementById('tsplits').innerHTML = all.map((s, i) => `
-    <tr><td>${i === mine.splits.length ? 'Final' : i + 1}</td><td class="num">${fmt(s)}</td><td class="num">${fmt(s - (all[i - 1] || 0))}</td></tr>`).join('')
+    <tr><td>${i === mine.splits.length ? 'Final' : i + 1}</td><td class="num">${fmt(s)}</td><td class="num">${fmtLap(s, all[i - 1])}</td></tr>`).join('')
     || '<tr><td colspan="3" class="muted">No times yet</td></tr>';
 }
 
-// ----- Scoreboard -----
-function resultsTable(heat, live) {
-  const laps = lapsFor(meet, heat);
-  let rows = results(meet, heat);
-  if (!live) rows = rows.filter((x) => x.timers).sort((a, b) => (a.place ?? 99) - (b.place ?? 99) || a.lane - b.lane);
+// ----- Results -----
+function resultsTable(heat) {
+  const rows = results(meet, heat).filter((x) => x.timers)
+    .sort((a, b) => (a.place ?? 99) - (b.place ?? 99) || a.lane - b.lane);
   if (!rows.length) return '<p class="muted">No times recorded.</p>';
-  return `<table><thead><tr>
-    ${live ? '<th>Lane</th>' : '<th>Place</th><th>Lane</th>'}
-    ${live ? '<th>Lap</th>' : ''}<th>Splits</th><th class="num">Time</th>${live ? '<th class="num">Place</th>' : ''}
-    </tr></thead><tbody>${rows.map((x) => {
-      const lapCell = x.empty ? 'Empty' : !x.timers ? '' : x.final != null ? '✓' : `${x.splits.length + 1}${laps ? '/' + laps : ''}`;
-      const splits = x.splits.map((s, i) => `${fmt(s)} <span style="opacity:.6">(${fmt(s - (x.splits[i - 1] || 0))})</span>`).join(' · ');
-      const place = x.place ? `<span class="${x.place === 1 ? 'place1' : ''}">${x.place}</span>` : '';
-      const dots = live && x.timers ? `<div class="timerdots small">${'●'.repeat(x.finished)}${'○'.repeat(x.timers - x.finished)}</div>` : '';
-      return `<tr class="${live && x.empty ? 'faded' : ''}">
-        ${live ? `<td class="lane">${x.lane}</td>` : `<td>${place}</td><td>${x.lane}</td>`}
-        ${live ? `<td>${lapCell}${dots}</td>` : ''}
-        <td class="splits">${splits}</td>
-        <td class="num"><b>${fmt(x.final) || (live && x.splits.length ? `<span class="muted">${fmt(x.splits.at(-1))}</span>` : '')}</b></td>
-        ${live ? `<td class="num">${place}</td>` : ''}</tr>`;
-    }).join('')}</tbody></table>`;
+  return `<table><thead><tr><th>Place</th><th>Lane</th><th>Splits</th><th class="num">Time</th></tr></thead><tbody>${rows.map((x) => {
+    const splits = x.splits.map((s, i) => `${fmt(s)} <span style="opacity:.6">(${fmtLap(s, x.splits[i - 1])})</span>`).join(' · ');
+    const place = x.place ? `<span class="${x.place === 1 ? 'place1' : ''}">${x.place}</span>` : '';
+    const time = x.final != null ? `<b>${fmt(x.final)}</b>` : x.splits.length ? `<span class="muted">${fmt(x.splits.at(-1))}</span>` : '';
+    return `<tr><td>${place}</td><td>${x.lane}</td><td class="splits">${splits}</td><td class="num">${time}</td></tr>`;
+  }).join('')}</tbody></table>`;
 }
 
-function viewBoard(r) {
-  shell('board:' + r.code, () => `
-    <div class="board">
-      <div class="card">
-        <div class="center"><span class="pill" id="bpill"></span></div>
-        <div class="heatname" id="btitle"></div>
-        <div class="clock" data-clock></div>
-        <div id="blive"></div>
-      </div>
-      <h2>Results</h2>
-      <div id="bhist"></div>
-    </div>`);
+function viewResults(r) {
+  shell('results:' + r.code, () => `
+    <div class="card">
+      <div class="heatcard-head"><span class="pill" id="rpill"></span><b id="rtitle"></b><span class="clockmini" data-clock id="rclock"></span></div>
+      <div id="rcur"></div>
+    </div>
+    <h2>Completed heats</h2>
+    <div id="rhist"></div>`);
   const h = meet.heat;
-  const rows = results(meet, h).filter((x) => x.timers);
-  const done = h.startedAt && rows.length && rows.every((x) => x.final != null);
-  const pill = document.getElementById('bpill');
+  const done = heatDone(meet, h);
+  const pill = document.getElementById('rpill');
   pill.className = 'pill ' + (done ? 'done' : h.startedAt ? 'live' : '');
-  pill.textContent = done ? 'Final' : h.startedAt ? 'Live' : 'Up next';
-  document.getElementById('btitle').innerHTML = heatTitle(meet, h);
-  document.getElementById('blive').innerHTML = resultsTable(h, true);
+  pill.textContent = done ? 'Finished' : h.startedAt ? 'Live' : 'Up next';
+  document.getElementById('rtitle').innerHTML = heatTitle(meet, h);
+  document.getElementById('rclock').hidden = !h.startedAt;
+  document.getElementById('rcur').innerHTML = h.startedAt ? resultsTable(h) : '<p class="muted">Not started yet.</p>';
 
   // History rarely changes; only rebuild when it does, so open <details> stay open.
-  const hist = document.getElementById('bhist');
+  const hist = document.getElementById('rhist');
   const histKey = meet.history.length + ':' + (meet.history[0]?.id || '');
   if (hist.dataset.key !== histKey) {
     hist.dataset.key = histKey;
     hist.innerHTML = meet.history.map((hh, i) => `
       <details class="card" ${i === 0 ? 'open' : ''}>
         <summary>${heatTitle(meet, hh)}</summary>
-        ${resultsTable(hh, false)}
+        ${resultsTable(hh)}
       </details>`).join('') || '<p class="muted">Completed heats will appear here.</p>';
   }
 }
+
+// ----- TV scoreboard -----
+function boardRow(x, laps) {
+  if (x.empty) return `<div class="tv-row empty"><div class="c-lane">${x.lane}</div><div class="c-msg">Empty lane</div></div>`;
+  const last = x.splits.at(-1);
+  const lap = !x.timers ? '' : x.final != null ? '<span class="tv-check">✓</span>' : `${x.splits.length + 1}${laps ? `<small>/${laps}</small>` : ''}`;
+  const split = last != null ? `${fmt(last)}<small>(${fmtLap(last, x.splits.at(-2))})</small>` : '';
+  const place = x.place ? `<span class="medal m${x.place}">${x.place}</span>` : '';
+  return `<div class="tv-row"><div class="c-lane">${x.lane}</div><div class="c-lap">${lap}</div>
+    <div class="c-split">${split}</div><div class="c-time">${fmt(x.final)}</div><div class="c-place">${place}</div></div>`;
+}
+
+function viewBoard(r) {
+  shell(`board:${r.code}:${meet.lanes}`, () => `
+    <div class="tv-wrap"><div class="tv-stage" style="--lanes:${Math.max(meet.lanes, 6)}">
+      <div class="tv-top">
+        <div class="tv-titles">
+          <div class="tv-meet">${esc(meet.name)}</div>
+          <div class="tv-heat" id="tvheat"></div>
+          <div class="tv-sub"><span class="tv-pill" id="tvpill"></span><span id="tvdist"></span></div>
+        </div>
+        <div class="tv-clock" data-clock></div>
+      </div>
+      <div class="tv-grid">
+        <div class="tv-row tv-head"><div class="c-lane">Lane</div><div>Lap</div><div>Last split</div><div class="c-time">Time</div><div class="c-place">Place</div></div>
+        <div id="tvlanes"></div>
+      </div>
+      <div class="tv-foot"><span id="tvnext"></span><span class="tv-code">Meet code <b>${esc(meet.code)}</b></span></div>
+    </div></div>
+    <div class="tv-ui">
+      <a href="#/${meet.code}">‹ Back</a>
+      <button id="fsbtn">Full screen (F)</button>
+    </div>`, () => {
+    document.getElementById('fsbtn').onclick = toggleFullscreen;
+  });
+
+  const { heat: h, next } = boardHeat(meet);
+  const done = !!next || heatDone(meet, h);
+  const pill = document.getElementById('tvpill');
+  pill.className = 'tv-pill ' + (done ? 'done' : h.startedAt ? 'live' : '');
+  pill.textContent = done ? 'FINAL' : h.startedAt ? 'LIVE' : 'UP NEXT';
+  document.getElementById('tvheat').textContent = h.label || 'Untitled heat';
+  document.getElementById('tvdist').textContent = h.distance ? `${h.distance} ${meet.unit} · ${lapsFor(meet, h)} laps` : '';
+  document.getElementById('tvlanes').innerHTML = results(meet, h).map((x) => boardRow(x, lapsFor(meet, h))).join('');
+  document.getElementById('tvnext').innerHTML = next ? `Up next <b>${heatTitle(meet, next)}</b>` : '';
+}
+
+function toggleFullscreen() {
+  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  else document.documentElement.requestFullscreen?.().catch(() => {});
+}
+// On the TV view: show the controls (and cursor) briefly when the mouse moves; F toggles full screen.
+let tvIdle = null;
+document.addEventListener('pointermove', () => {
+  if (!document.body.classList.contains('tv')) return;
+  document.body.classList.add('tv-ui-on');
+  clearTimeout(tvIdle);
+  tvIdle = setTimeout(() => document.body.classList.remove('tv-ui-on'), 2500);
+});
+document.addEventListener('keydown', (e) => {
+  if (document.body.classList.contains('tv') && e.key.toLowerCase() === 'f' && !document.getElementById('qrfull')) toggleFullscreen();
+});
+document.addEventListener('dblclick', () => document.body.classList.contains('tv') && toggleFullscreen());
 
 // ---------- running clocks ----------
 function frame() {
   if (meet) {
     const els = document.querySelectorAll('[data-clock]');
     if (els.length) {
-      const text = fmt(heatClock(meet, meet.heat)) || '0.00';
+      const heat = route().role === 'board' ? boardHeat(meet).heat : meet.heat;
+      const text = fmt(heatClock(meet, heat)) || '0.0';
       els.forEach((el) => el.textContent !== text && (el.textContent = text));
     }
   }
