@@ -67,6 +67,13 @@
   td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   .splits { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
   .place1 { color: var(--gold); font-weight: 800; }
+  .qr { display: inline-block; background: #fff; padding: 8px; border-radius: 10px; border: 1px solid var(--line);
+    margin-top: 12px; cursor: zoom-in; line-height: 0; }
+  .qr svg { width: 160px; height: 160px; }
+  #qrfull { position: fixed; inset: 0; z-index: 20; background: #fff; color: #000; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 16px; padding: 16px; cursor: zoom-out; text-align: center; }
+  #qrfull svg { width: min(90vw, 80vh); height: min(90vw, 80vh); }
+  #qrfull .code { color: #000; }
   #toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--stop); color: #fff;
     padding: 10px 16px; border-radius: 8px; font-weight: 600; display: none; z-index: 10; max-width: 90vw; }
   .conn { width: 10px; height: 10px; border-radius: 50%; background: var(--go); display: inline-block; }
@@ -95,6 +102,7 @@
 <main id="app"></main>
 <div id="toast"></div>
 
+<script src="vendor/qrcode.js"></script>
 <script>
 const API = 'api.php';
 const LANE_DEBOUNCE_MS = 1500;      // ignore a second tap within this window (accidental double-tap)
@@ -157,6 +165,35 @@ function forgetMeet(code) {
   saveRecent(recentMeets().filter((x) => x.code !== code));
   shellKey = null;
   render();
+}
+
+// QR code as a crisp, scalable SVG.
+function qrSvg(text) {
+  const qr = qrcode(0, 'M');
+  qr.addData(text);
+  qr.make();
+  const n = qr.getModuleCount(), q = 2; // q = quiet zone in modules
+  let path = '';
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (qr.isDark(y, x)) path += `M${x + q} ${y + q}h1v1h-1z`;
+  return `<svg viewBox="0 0 ${n + 2 * q} ${n + 2 * q}" shape-rendering="crispEdges" role="img" aria-label="QR code">
+    <rect width="100%" height="100%" fill="#fff"/><path d="${path}" fill="#000"/></svg>`;
+}
+
+// Full-screen QR overlay; tap anywhere (or Esc) to close.
+function showQr(link) {
+  const el = document.createElement('div');
+  el.id = 'qrfull';
+  el.innerHTML = `${qrSvg(link)}<div class="code">${esc(meet.code)}</div><div>${esc(meet.name)} · tap to close</div>`;
+  const close = () => {
+    el.remove();
+    document.removeEventListener('keydown', onKey);
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  };
+  const onKey = (e) => e.key === 'Escape' && close();
+  el.addEventListener('click', close);
+  document.addEventListener('keydown', onKey);
+  document.body.appendChild(el);
+  el.requestFullscreen?.().catch(() => {}); // true full screen where supported; the overlay covers the page otherwise
 }
 
 const nextLabel = (l) => l.replace(/(heat\s*)(\d+)/i, (_, p, n) => p + (Number(n) + 1));
@@ -354,12 +391,19 @@ function viewRoles(r) {
       <div class="code">${meet.code}</div>
       <div class="muted small" style="margin-top:6px">${meet.lanes} lanes · ${meet.pool} ${meet.unit} pool</div>
       <div class="small" style="margin-top:8px;word-break:break-all"><a href="${esc(link)}">${esc(link)}</a></div>
+      <div class="qr" id="qrbtn" role="button" tabindex="0" title="Show full screen">${qrSvg(link)}</div>
+      <div class="muted small">Tap the QR code to show it full screen</div>
     </div>
     <div class="roles">
       <a class="btn" style="background:var(--go)" href="#/${meet.code}/starter">Starter<small>Starts the clock for each heat</small></a>
       <a class="btn" href="#/${meet.code}/timer">Timer<small>Records splits and final time for a lane</small></a>
       <a class="btn secondary" href="#/${meet.code}/board">Scoreboard<small>Live results for a TV or laptop</small></a>
     </div>`;
+  }, () => {
+    const link = location.href.split('#')[0] + '#/' + meet.code;
+    const qrbtn = document.getElementById('qrbtn');
+    qrbtn.onclick = () => showQr(link);
+    qrbtn.onkeydown = (e) => (e.key === 'Enter' || e.key === ' ') && showQr(link);
   });
 }
 

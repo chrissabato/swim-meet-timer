@@ -11,7 +11,7 @@ Phones sync to the server clock, and each tap is time-stamped on the phone at th
 
 ## Deploy (Apache + PHP on a DigitalOcean droplet)
 
-1. Copy `index.html`, `api.php`, and the `data/` folder (with its `.htaccess`) to a folder under your web root, e.g. `/var/www/html/meet/`.
+1. Copy `index.html`, `api.php`, the `vendor/` folder, and the `data/` folder (with its `.htaccess`) to a folder under your web root, e.g. `/var/www/html/meet/`.
 2. Make `data/` writable by Apache: `sudo chown www-data:www-data data && sudo chmod 775 data`
 3. Make sure Apache honors `data/.htaccess` (`AllowOverride All`), or add
    `<Directory /var/www/html/meet/data> Require all denied </Directory>` to the site config.
