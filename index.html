@@ -5,959 +5,200 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b3d63">
 <title>Simple Meet Timer</title>
+<meta name="description" content="Run a swim meet with the phones you already have: a starter, lane timers, and a live TV scoreboard. No hardware, no install.">
+<script>
+  // Old meet links pointed here (e.g. /meet/#/K7QM); send them on to the app.
+  if (/^#\/./.test(location.hash)) location.replace('app.html' + location.hash);
+</script>
 <style>
   :root {
     --bg: #f3f6f9; --card: #ffffff; --text: #0f1b26; --muted: #5b6b7a; --line: #d8e0e8;
-    --brand: #0b3d63; --accent: #0a74c9; --go: #138a3e; --stop: #c62828; --warn: #b26a00;
-    --gold: #c99a06; --clock: #0b3d63;
+    --brand: #0b3d63; --accent: #0a74c9; --go: #138a3e; --stop: #c62828; --gold: #c99a06;
+    --hero: #06121e; --hero-text: #f2f6fa; --hero-muted: #8aa4bd; --lane: #3ec6ff;
   }
   @media (prefers-color-scheme: dark) {
     :root {
       --bg: #0b1219; --card: #131d27; --text: #e8eef4; --muted: #8fa2b4; --line: #24323f;
-      --brand: #0e2a42; --accent: #3a9cf0; --go: #2fb35c; --stop: #ef5350; --warn: #f0a33a;
-      --gold: #f2c94c; --clock: #e8eef4;
+      --brand: #0e2a42; --accent: #3a9cf0; --go: #2fb35c; --stop: #ef5350; --gold: #f2c94c;
     }
   }
-  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  * { box-sizing: border-box; }
   html, body { margin: 0; background: var(--bg); color: var(--text);
-    font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-  header { background: var(--brand); color: #fff; padding: 12px 16px; display: flex; align-items: center; gap: 12px; }
-  header a { color: #fff; text-decoration: none; font-weight: 700; }
-  header .meta { margin-left: auto; font-size: 14px; opacity: .85; text-align: right; }
-  main { max-width: 720px; margin: 0 auto; padding: 16px; }
-  main.wide { max-width: 1200px; }
-  h1 { font-size: 22px; margin: 0 0 12px; }
-  h2 { font-size: 18px; margin: 20px 0 8px; }
-  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
-  label { display: block; font-size: 14px; color: var(--muted); margin: 10px 0 4px; }
-  input, select { width: 100%; font: inherit; padding: 12px; border-radius: 8px; border: 1px solid var(--line);
-    background: var(--bg); color: var(--text); }
-  .row { display: flex; gap: 10px; }
-  .row > * { flex: 1; }
-  button, .btn { font: inherit; font-weight: 600; border: 0; border-radius: 10px; padding: 14px 16px; cursor: pointer;
-    background: var(--accent); color: #fff; display: block; width: 100%; text-align: center; text-decoration: none;
-    touch-action: manipulation; user-select: none; -webkit-user-select: none; }
-  button.secondary, .btn.secondary { background: transparent; color: var(--accent); border: 2px solid var(--accent); }
-  button.danger { background: var(--stop); }
-  button:disabled { opacity: .4; cursor: default; }
-  .stack > * + * { margin-top: 10px; }
-  .muted { color: var(--muted); }
-  .small { font-size: 13px; }
-  .center { text-align: center; }
-  .code { font: 700 32px/1 ui-monospace, Menlo, monospace; letter-spacing: 4px; }
-  .clock { font: 700 64px/1 ui-monospace, "SF Mono", Menlo, Consolas, monospace; color: var(--clock);
-    text-align: center; font-variant-numeric: tabular-nums; margin: 12px 0; }
-  .roles { display: grid; gap: 12px; }
-  .roles .btn { padding: 22px; font-size: 20px; }
-  .roles .btn small { display: block; font-weight: 400; font-size: 14px; opacity: .85; }
-  .lanegrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-  .lanegrid button { padding: 22px 0; font-size: 24px; }
-  .big { font-size: 34px; padding: 0; height: 38vh; min-height: 180px; border-radius: 18px; letter-spacing: 2px; }
-  .big.go { background: var(--go); }
-  .big.split { background: var(--accent); }
-  .big.finish { background: var(--stop); }
-  .big small { display: block; font-size: 16px; font-weight: 500; letter-spacing: 0; opacity: .9; }
-  .pill { display: inline-block; padding: 2px 10px; border-radius: 99px; font-size: 13px; font-weight: 600;
-    background: var(--line); color: var(--text); }
-  .pill.live { background: var(--stop); color: #fff; }
-  .pill.done { background: var(--go); color: #fff; }
-  table { width: 100%; border-collapse: collapse; }
-  th, td { padding: 8px 6px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: top; }
-  th { font-size: 12px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
-  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
-  .splits { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
-  .place1 { color: var(--gold); font-weight: 800; }
-  .qr { display: inline-block; background: #fff; padding: 8px; border-radius: 10px; border: 1px solid var(--line);
-    margin-top: 12px; cursor: zoom-in; line-height: 0; }
-  .qr svg { width: 160px; height: 160px; }
-  #qrfull { position: fixed; inset: 0; z-index: 20; background: #fff; color: #000; display: flex; flex-direction: column;
-    align-items: center; justify-content: center; gap: 16px; padding: 16px; cursor: zoom-out; text-align: center; }
-  #qrfull svg { width: min(90vw, 80vh); height: min(90vw, 80vh); }
-  #qrfull .code { color: #000; }
-  #toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--stop); color: #fff;
-    padding: 10px 16px; border-radius: 8px; font-weight: 600; display: none; z-index: 10; max-width: 90vw; }
-  .conn { width: 10px; height: 10px; border-radius: 50%; background: var(--go); display: inline-block; }
-  .conn.off { background: var(--stop); }
-  .sync { display: inline-block; width: auto; padding: 2px 8px; margin-left: 6px; border-radius: 99px; font-size: 12px;
-    font-weight: 700; background: rgba(255,255,255,.2); color: #fff; vertical-align: middle; }
-  .sync.good { background: var(--go); }
-  .sync.ok { background: var(--warn); }
-  .sync.bad { background: var(--stop); }
+    font: 17px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  img { display: block; max-width: 100%; height: auto; }
+  a { color: var(--accent); }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 16px; }
 
-  /* Starter setup */
-  .heatpreview { font-size: 20px; font-weight: 700; margin-top: 8px; }
-  .seg { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
-  .seg button, .stepper button { padding: 12px 6px; background: var(--bg); color: var(--text); border: 1px solid var(--line); }
-  .seg button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
-  .stepper { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 6px; }
-  .stepper span { grid-column: 1 / -1; color: var(--muted); font-size: 14px; }
-  .stepper button { font-size: 22px; line-height: 1; padding: 10px 0; }
-  .stepper b { font-size: 24px; min-width: 1.6em; text-align: center; font-variant-numeric: tabular-nums; }
-  button small { display: block; font-weight: 400; font-size: 13px; opacity: .85; }
+  .cta { display: inline-block; background: var(--go); color: #fff; font-weight: 700; font-size: 19px;
+    padding: 16px 30px; border-radius: 12px; text-decoration: none; box-shadow: 0 6px 20px rgba(19,138,62,.35);
+    transition: transform .15s, box-shadow .15s; }
+  .cta:hover { transform: translateY(-2px); box-shadow: 0 10px 26px rgba(19,138,62,.45); }
+  .cta:focus-visible { outline: 3px solid var(--lane); outline-offset: 3px; }
 
-  /* Results */
-  .heatcard-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
-  .heatcard-head .clockmini { margin-left: auto; font: 700 22px/1 ui-monospace, Menlo, monospace; font-variant-numeric: tabular-nums; }
+  /* Hero */
+  .hero { background: radial-gradient(1200px 500px at 70% -10%, #123a5c 0%, transparent 60%), var(--hero);
+    color: var(--hero-text); padding: 20px 0 64px; overflow: hidden; }
+  .nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 48px; }
+  .logo { font-weight: 800; font-size: 19px; color: #fff; text-decoration: none; }
+  .nav a.launch { color: #fff; font-weight: 600; text-decoration: none; padding: 8px 14px;
+    border: 1px solid rgba(255,255,255,.3); border-radius: 8px; font-size: 15px; }
+  .nav a.launch:hover { background: rgba(255,255,255,.1); }
+  .hero-grid { display: grid; grid-template-columns: 1fr 1.25fr; gap: 48px; align-items: center; }
+  .eyebrow { color: var(--lane); font-weight: 700; letter-spacing: .12em; text-transform: uppercase; font-size: 13px; margin: 0 0 12px; }
+  .hero h1 { font-size: clamp(34px, 5vw, 54px); line-height: 1.08; margin: 0 0 18px; letter-spacing: -.02em; }
+  .hero p.lede { color: var(--hero-muted); font-size: 19px; margin: 0 0 30px; max-width: 34em; }
+  .hero .fine { color: var(--hero-muted); font-size: 14px; margin-top: 14px; }
+  .tv { background: #000; border-radius: 14px; padding: 10px; box-shadow: 0 30px 80px rgba(0,0,0,.6), 0 0 0 1px #1d3a55; }
+  .tv img { border-radius: 6px; }
+  .tv-stand { width: 22%; height: 14px; margin: 0 auto; background: linear-gradient(#1a2a3a, #0c1620); border-radius: 0 0 8px 8px; }
 
-  /* TV scoreboard: a 16:9 stage scaled to fit the screen. 1u = 1% of the stage width. */
-  body.tv { --u: min(1vw, 1.77778vh); background: #06121e; color: #f2f6fa; overflow: hidden; }
-  body.tv header { display: none; }
-  body.tv main { max-width: none; padding: 0; }
-  body.tv:not(.tv-ui-on) { cursor: none; }
-  .tv-wrap { width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; }
-  .tv-stage { width: calc(100 * var(--u)); height: calc(56.25 * var(--u)); padding: calc(1.6 * var(--u)) calc(2 * var(--u));
-    display: flex; flex-direction: column; gap: calc(1 * var(--u)); font-variant-numeric: tabular-nums;
-    --row: min(calc(var(--u) * 36 / var(--lanes)), calc(var(--u) * 6.5)); }
-  .tv-top { display: flex; align-items: center; gap: calc(2 * var(--u)); height: calc(10 * var(--u));
-    border-bottom: calc(.25 * var(--u)) solid #1d3a55; padding-bottom: calc(1 * var(--u)); }
-  .tv-titles { flex: 1; min-width: 0; }
-  .tv-meet { font-size: calc(1.6 * var(--u)); color: #8aa4bd; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .tv-heat { font-size: calc(3.4 * var(--u)); font-weight: 800; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .tv-sub { font-size: calc(1.7 * var(--u)); color: #8aa4bd; display: flex; align-items: center; gap: calc(1 * var(--u)); margin-top: calc(.3 * var(--u)); }
-  .tv-pill { font-size: calc(1.4 * var(--u)); font-weight: 800; letter-spacing: .1em; padding: calc(.3 * var(--u)) calc(1 * var(--u));
-    border-radius: calc(.5 * var(--u)); background: #24425f; color: #f2f6fa; }
-  .tv-pill.live { background: #e53935; }
-  .tv-pill.live::before { content: "● "; animation: tvpulse 1.2s infinite; }
-  .tv-pill.done { background: #2e9e57; }
-  @keyframes tvpulse { 50% { opacity: .25; } }
-  @media (prefers-reduced-motion: reduce) { .tv-pill.live::before { animation: none; } }
-  .tv-clock { font-size: calc(8 * var(--u)); font-weight: 800; line-height: 1; color: #fff; text-align: right; min-width: 4.6em; }
-  .tv-grid { flex: 1; display: flex; flex-direction: column; min-height: 0; }
-  .tv-row { display: grid; grid-template-columns: 9% 14% 1fr 24% 12%; align-items: center; height: var(--row);
-    font-size: calc(var(--row) * .55); font-weight: 700; border-radius: calc(.6 * var(--u)); }
-  .tv-row > div { padding: 0 calc(1.2 * var(--u)); white-space: nowrap; overflow: hidden; }
-  #tvlanes .tv-row:nth-child(odd) { background: #0c2033; }
-  .tv-head { height: calc(3 * var(--u)); font-size: calc(1.4 * var(--u)); color: #8aa4bd; letter-spacing: .1em; text-transform: uppercase; }
-  .tv-row .c-lane { font-weight: 900; color: #3ec6ff; text-align: center; }
-  .tv-head .c-lane { color: inherit; }
-  .tv-row .c-lap small { color: #8aa4bd; font-size: .7em; }
-  .tv-row .c-split small { color: #8aa4bd; font-size: .65em; margin-left: .4em; }
-  .tv-row .c-time { text-align: right; font-weight: 800; }
-  .tv-row .c-place { text-align: center; }
-  .tv-row.empty, .tv-row.empty .c-lane { color: #4d6782; }
-  .tv-row .c-msg { grid-column: 2 / -1; font-size: .7em; letter-spacing: .1em; text-transform: uppercase; }
-  .tv-check { color: #35c46a; }
-  .medal { display: inline-block; min-width: 1.6em; line-height: 1.6em; border-radius: 50%; background: #24425f; text-align: center; font-size: .85em; }
-  .medal.m1 { background: #ffcc33; color: #1a1300; }
-  .medal.m2 { background: #c9d3dd; color: #10171e; }
-  .medal.m3 { background: #d08a4c; color: #1a0d00; }
-  .tv-foot { display: flex; align-items: center; gap: calc(1.5 * var(--u)); height: calc(3.6 * var(--u)); font-size: calc(1.7 * var(--u));
-    color: #8aa4bd; border-top: calc(.25 * var(--u)) solid #1d3a55; padding-top: calc(.8 * var(--u)); }
-  .tv-foot b { color: #f2f6fa; }
-  .tv-foot .tv-code { margin-left: auto; }
-  .tv-ui { position: fixed; top: 16px; left: 16px; display: flex; gap: 8px; opacity: 0; transition: opacity .3s; pointer-events: none; }
-  body.tv-ui-on .tv-ui { opacity: 1; pointer-events: auto; }
-  .tv-ui a, .tv-ui button { width: auto; padding: 8px 14px; font-size: 14px; background: rgba(255,255,255,.15); color: #fff; border-radius: 8px; }
-  .recent-row { display: flex; align-items: center; gap: 10px; border-top: 1px solid var(--line); padding: 10px 0; }
-  .recent-row:first-child { border-top: 0; padding-top: 0; }
-  .recent-row a { flex: 1; color: inherit; text-decoration: none; min-width: 0; }
-  .recent-row button { width: auto; padding: 6px 12px; font-size: 20px; line-height: 1; }
-  details summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
-  tr.faded { opacity: .3; }
-  .split-list td { font-size: 18px; }
+  /* Sections */
+  section { padding: 72px 0; }
+  section h2 { font-size: clamp(28px, 3.6vw, 38px); line-height: 1.15; margin: 0 0 12px; letter-spacing: -.01em; }
+  .sub { color: var(--muted); font-size: 18px; margin: 0 0 40px; max-width: 40em; }
+
+  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; }
+  .step { text-align: center; }
+  .phone { width: 100%; max-width: 270px; margin: 0 auto 22px; border-radius: 34px; padding: 9px; background: #0f1b26;
+    box-shadow: 0 18px 44px rgba(11,61,99,.22), 0 0 0 1px var(--line); }
+  .phone img { border-radius: 26px; aspect-ratio: 390 / 844; object-fit: cover; object-position: top; }
+  .num { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 50%;
+    background: var(--accent); color: #fff; font-weight: 800; font-size: 15px; margin-bottom: 8px; }
+  .step h3 { margin: 0 0 6px; font-size: 21px; }
+  .step p { margin: 0 auto; color: var(--muted); max-width: 22em; }
+
+  .features { background: var(--card); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .feat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  .feat { padding: 22px; border: 1px solid var(--line); border-radius: 14px; background: var(--bg); }
+  .feat .ico { font-size: 26px; line-height: 1; margin-bottom: 10px; }
+  .feat h3 { margin: 0 0 6px; font-size: 18px; }
+  .feat p { margin: 0; color: var(--muted); font-size: 16px; }
+
+  .split { display: grid; grid-template-columns: 1fr 1.2fr; gap: 56px; align-items: start; }
+  .split ul { padding: 0; margin: 0; list-style: none; }
+  .split li { padding: 12px 0 12px 34px; border-top: 1px solid var(--line); position: relative; }
+  .split li::before { content: "✓"; position: absolute; left: 4px; top: 12px; color: var(--go); font-weight: 900; }
+  .split li b { display: block; }
+  .split li span { color: var(--muted); }
+
+  .final { background: var(--brand); color: #fff; text-align: center; }
+  .final h2 { color: #fff; }
+  .final p { color: rgba(255,255,255,.8); font-size: 18px; margin: 0 auto 30px; max-width: 32em; }
+  footer { text-align: center; color: var(--muted); font-size: 14px; padding: 28px 16px; }
+
+  @media (max-width: 860px) {
+    .hero-grid, .split { grid-template-columns: 1fr; gap: 36px; }
+    .steps, .feat-grid { grid-template-columns: 1fr; gap: 40px; }
+    .feat-grid { gap: 14px; }
+    section { padding: 56px 0; }
+    .nav { margin-bottom: 32px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .cta { transition: none; } .cta:hover { transform: none; } }
 </style>
 </head>
 <body>
-<header>
-  <a href="#/">🏊 Meet Timer</a>
-  <div class="meta" id="hdr"></div>
+
+<header class="hero">
+  <div class="wrap">
+    <nav class="nav">
+      <a class="logo" href="./">🏊 Simple Meet Timer</a>
+      <a class="launch" href="app.html">Launch app →</a>
+    </nav>
+    <div class="hero-grid">
+      <div>
+        <p class="eyebrow">Swim meet timing</p>
+        <h1>Run your meet with the phones you already have.</h1>
+        <p class="lede">A starter, lane timers, and a live TV scoreboard. All of it runs in the browser. No touchpads,
+          no consoles, no app to install. Create a meet, share a 4-letter code, and start racing.</p>
+        <a class="cta" href="app.html">Launch the timer</a>
+        <p class="fine">Works on any phone, tablet, or laptop.</p>
+      </div>
+      <div>
+        <div class="tv"><img src="img/scoreboard.png" width="1600" height="900"
+          alt="TV scoreboard showing Girls 100 Free, Event 4 Heat 2, live clock at 1:01.8, lap splits for eight lanes, and places 1–3 with medal badges"></div>
+        <div class="tv-stand"></div>
+      </div>
+    </div>
+  </div>
 </header>
-<main id="app"></main>
-<div id="toast"></div>
 
-<script src="vendor/qrcode.js"></script>
-<script>
-const API = 'api.php';
-const LANE_DEBOUNCE_MS = 1500;      // ignore a second tap within this window (accidental double-tap)
-const STROKES = ['Free', 'Back', 'Breast', 'Fly', 'IM', 'Free Relay', 'Medley Relay'];
-const GENDERS = { bg: ['Boys', 'Girls'], mw: ['Men', 'Women'], none: [] };
-
-// ---------- clock sync: phones measure their offset from the server clock ----------
-// Local time comes from the browser's steady timer, so the phone adjusting its own
-// clock mid-race can't shift a result. Each sync takes several round trips and keeps
-// the fastest one; its error is at most half that round trip.
-const SYNC_SAMPLES = 10;
-const SYNC_KEEP_MS = 5 * 60000;     // a good sync is kept over a noisier one for this long
-const localNow = () => performance.timeOrigin + performance.now();
-let offset = 0;
-const sync = { err: null, at: 0, busy: false };
-const now = () => localNow() + offset;
-// Only send our timestamp once synced; otherwise the server uses its own arrival time.
-const stamp = (t) => (sync.err != null ? t : null);
-
-async function syncClock(force = false) {
-  if (sync.busy) return;
-  sync.busy = true;
-  updateHeader();
-  let best = null;
-  for (let i = 0; i < SYNC_SAMPLES; i++) {
-    try {
-      const t0 = localNow();
-      const { now: s } = await (await fetch(`${API}?a=time&_=${t0}`, { cache: 'no-store' })).json();
-      const t1 = localNow();
-      if (!best || t1 - t0 < best.rtt) best = { rtt: t1 - t0, off: s - (t0 + t1) / 2 };
-    } catch { /* try again */ }
-  }
-  sync.busy = false;
-  if (best) {
-    const err = best.rtt / 2;
-    if (force || sync.err == null || err <= sync.err * 1.5 || localNow() - sync.at > SYNC_KEEP_MS) {
-      offset = best.off;
-      sync.err = err;
-      sync.at = localNow();
-    }
-  }
-  updateHeader();
-}
-
-function syncBadge() {
-  if (sync.err == null) {
-    return `<button class="sync ${sync.busy ? '' : 'bad'}" id="syncbadge" title="Tap to re-sync">${sync.busy ? 'Syncing…' : 'No sync'}</button>`;
-  }
-  const level = sync.err <= 25 ? 'good' : sync.err <= 75 ? 'ok' : 'bad';
-  const secs = Math.max(0.01, sync.err / 1000).toFixed(2);
-  return `<button class="sync ${level}" id="syncbadge" title="Clock sync accuracy — tap to re-sync">${sync.busy ? 'Syncing…' : `Sync ±${secs}s`}</button>`;
-}
-document.addEventListener('click', (e) => e.target.closest('#syncbadge') && syncClock(true));
-
-// ---------- helpers ----------
-const $app = document.getElementById('app');
-const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-// Hand times: shown truncated to tenths (hundredths are kept for averaging but aren't meaningful).
-const tenths = (ms) => Math.floor(Math.max(0, ms) / 100);
-function fmt(ms) {
-  if (ms == null) return '';
-  const t = tenths(ms), s = Math.floor(t / 10) % 60, m = Math.floor(t / 600);
-  return (m ? `${m}:${String(s).padStart(2, '0')}` : `${s}`) + '.' + (t % 10);
-}
-// Lap time from the displayed (tenths) splits, so the numbers on screen add up.
-const fmtLap = (ms, prev) => fmt((tenths(ms) - tenths(prev || 0)) * 100);
-function toast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg; t.style.display = 'block';
-  clearTimeout(toast.h); toast.h = setTimeout(() => (t.style.display = 'none'), 3000);
-}
-const cid = (() => {
-  let id = null;
-  try { id = localStorage.getItem('smt-cid'); } catch {}
-  if (!id) {
-    id = 't' + Math.random().toString(36).slice(2, 10);
-    try { localStorage.setItem('smt-cid', id); } catch {}
-  }
-  return id;
-})();
-const buzz = () => navigator.vibrate && navigator.vibrate(40);
-// Recently opened meets, kept in this browser only.
-const RECENT_KEY = 'smt-recent', RECENT_MAX = 10;
-function recentMeets() {
-  try { return JSON.parse(localStorage.getItem(RECENT_KEY)) || []; } catch { return []; }
-}
-function saveRecent(list) {
-  try { localStorage.setItem(RECENT_KEY, JSON.stringify(list.slice(0, RECENT_MAX))); } catch {}
-}
-function rememberMeet(m) {
-  const list = recentMeets().filter((x) => x.code !== m.code);
-  list.unshift({ code: m.code, name: m.name, date: m.date, lanes: m.lanes, pool: m.pool, unit: m.unit, opened: Date.now() });
-  saveRecent(list);
-}
-function forgetMeet(code) {
-  saveRecent(recentMeets().filter((x) => x.code !== code));
-  shellKey = null;
-  render();
-}
-
-// QR code as a crisp, scalable SVG.
-function qrSvg(text) {
-  const qr = qrcode(0, 'M');
-  qr.addData(text);
-  qr.make();
-  const n = qr.getModuleCount(), q = 2; // q = quiet zone in modules
-  let path = '';
-  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (qr.isDark(y, x)) path += `M${x + q} ${y + q}h1v1h-1z`;
-  return `<svg viewBox="0 0 ${n + 2 * q} ${n + 2 * q}" shape-rendering="crispEdges" role="img" aria-label="QR code">
-    <rect width="100%" height="100%" fill="#fff"/><path d="${path}" fill="#000"/></svg>`;
-}
-
-// Full-screen QR overlay; tap anywhere (or Esc) to close.
-function showQr(link) {
-  const el = document.createElement('div');
-  el.id = 'qrfull';
-  el.innerHTML = `${qrSvg(link)}<div class="code">${esc(meet.code)}</div><div>${esc(meet.name)} · tap to close</div>`;
-  const close = () => {
-    el.remove();
-    document.removeEventListener('keydown', onKey);
-    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-  };
-  const onKey = (e) => e.key === 'Escape' && close();
-  el.addEventListener('click', close);
-  document.addEventListener('keydown', onKey);
-  document.body.appendChild(el);
-  el.requestFullscreen?.().catch(() => {}); // true full screen where supported; the overlay covers the page otherwise
-}
-
-// Meet date ("2026-10-18") as e.g. "Sat, Oct 18, 2026"; older meets have none.
-function meetDate(d) {
-  if (!d) return '';
-  const [y, m, day] = d.split('-').map(Number);
-  return new Date(y, m - 1, day).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
-}
-
-// Distances offered for a stroke in this meet's pool. IM and relays need a lap count divisible by 4.
-function distancesFor(stroke) {
-  const free = meet.unit === 'm' ? [25, 50, 100, 200, 400, 800, 1500] : [25, 50, 100, 200, 500, 1000, 1650];
-  const list = { Free: free, IM: [100, 200, 400], 'Free Relay': [100, 200, 400, 800], 'Medley Relay': [100, 200, 400] }[stroke]
-    || [25, 50, 100, 200];
-  const legs = stroke === 'IM' || stroke.includes('Relay');
-  return list.filter((d) => d % meet.pool === 0 && (!legs || (d / meet.pool) % 4 === 0));
-}
-
-// Heat naming. Heats from older meets only have a typed `label`.
-const eventName = (heat) => (heat.stroke ? [heat.gender, heat.distance || '', heat.stroke].filter(Boolean).join(' ') : '');
-const heatNum = (heat) => `Event ${heat.event} · Heat ${heat.heat}`;
-const heatLabel = (heat) => (heat.event ? [heatNum(heat), eventName(heat)].filter(Boolean).join(' · ') : heat.label || 'Untitled heat');
-
-// USA Swimming style: 3 times -> middle, 2 -> average truncated to hundredths, 1 -> that time.
-function official(times) {
-  const t = times.filter((x) => x != null).sort((a, b) => a - b);
-  if (t.length === 0) return null;
-  if (t.length === 1) return t[0];
-  if (t.length === 2) return Math.floor((t[0] + t[1]) / 20) * 10;
-  return t[1];
-}
-
-function laneSummary(laneData) {
-  const timers = Object.values(laneData?.timers || {});
-  const maxSplits = Math.max(0, ...timers.map((t) => t.splits.length));
-  const splits = [];
-  for (let i = 0; i < maxSplits; i++) splits.push(official(timers.map((t) => t.splits[i])));
-  return {
-    timers: timers.length,
-    finished: timers.filter((t) => t.final != null).length,
-    splits,
-    final: official(timers.map((t) => t.final)),
-  };
-}
-
-function results(meet, heat) {
-  const rows = [];
-  const empty = heat.empty || [];
-  for (let lane = 1; lane <= meet.lanes; lane++) rows.push({ lane, empty: empty.includes(lane), ...laneSummary(heat.lanes?.[lane]) });
-  // Places go by the displayed tenths, so equal times tie (1, 2, 2, 4).
-  const finals = rows.filter((r) => r.final != null).map((r) => tenths(r.final));
-  for (const r of rows) r.place = r.final != null ? finals.filter((f) => f < tenths(r.final)).length + 1 : null;
-  return rows;
-}
-
-const lapsFor = (meet, heat) => (heat.distance && meet.pool ? Math.ceil(heat.distance / meet.pool) : 0);
-const heatTitle = (meet, heat) => esc(heatLabel(heat))
-  + (heat.distance ? (heat.event ? '' : ` · ${heat.distance} ${meet.unit}`) + ` (${lapsFor(meet, heat)} laps)` : '');
-
-// A heat is done once every lane with timers has an official final.
-function heatDone(meet, heat) {
-  const rows = results(meet, heat).filter((r) => r.timers > 0);
-  return !!heat.startedAt && rows.length > 0 && rows.every((r) => r.final != null);
-}
-
-// Clock for a heat: stops at the slowest final once the heat is done (or saved to history).
-function heatClock(meet, heat) {
-  if (!heat.startedAt) return 0;
-  if (heat !== meet.heat || heatDone(meet, heat)) return Math.max(0, ...results(meet, heat).map((r) => r.final ?? 0));
-  return now() - heat.startedAt;
-}
-
-// The TV holds the last saved heat's results until the next heat starts.
-function boardHeat(meet) {
-  const held = !meet.heat.startedAt && meet.history[0];
-  return held ? { heat: meet.history[0], next: meet.heat } : { heat: meet.heat, next: null };
-}
-
-// ---------- server calls ----------
-let meet = null;
-async function post(action, body = {}, code = meet?.code) {
-  for (let attempt = 0; attempt < 3; attempt++) {
-    try {
-      const res = await fetch(`${API}?a=${action}&code=${code || ''}`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-      });
-      const data = await res.json();
-      if (!res.ok) { toast(data.error || 'Error'); return null; }
-      if (data.meet) applyMeet(data.meet);
-      return data;
-    } catch {
-      await new Promise((r) => setTimeout(r, 400));
-    }
-  }
-  toast('Network problem — not saved');
-  return null;
-}
-
-// Poll the meet. Cheap when nothing changed: the server answers {same:true}.
-let pollCode = null, pollTimer = null, online = true;
-function startPolling(code) {
-  if (pollCode === code) return;
-  pollCode = code; meet = null;
-  clearTimeout(pollTimer);
-  const tick = async () => {
-    if (pollCode !== code) return;
-    try {
-      const res = await fetch(`${API}?a=state&code=${code}&v=${meet?.version || 0}&_=${Date.now()}`, { cache: 'no-store' });
-      const data = await res.json();
-      if (res.status === 404) { toast('Meet not found'); location.hash = '#/'; return; }
-      online = true;
-      if (!data.same && pollCode === code) applyMeet(data);
-    } catch { online = false; }
-    updateHeader();
-    pollTimer = setTimeout(tick, document.hidden ? 3000 : 600);
-  };
-  tick();
-}
-function stopPolling() { pollCode = null; clearTimeout(pollTimer); meet = null; }
-
-function applyMeet(m) {
-  if (meet && m.version < meet.version) return;
-  if (!meet || meet.code !== m.code || meet.name !== m.name) rememberMeet(m);
-  meet = m;
-  render();
-}
-
-// ---------- routing ----------
-// #/                    home
-// #/CODE                choose role
-// #/CODE/starter        starter
-// #/CODE/timer[/lane]   timer
-// #/CODE/board          TV scoreboard
-// #/CODE/results        results
-function route() {
-  const [code, role, lane] = location.hash.replace(/^#\/?/, '').split('/');
-  return { code: (code || '').toUpperCase(), role: role || '', lane: Number(lane) || 0 };
-}
-window.addEventListener('hashchange', () => { shellKey = null; render(); });
-
-// Views rebuild their markup only when the "shell key" changes (so inputs aren't wiped
-// mid-typing); otherwise they just refresh their live regions.
-let shellKey = null;
-function render() {
-  const r = route();
-  if (!r.code) { stopPolling(); updateHeader(); return shell('home', viewHome); }
-  if (r.code === 'ADMIN') { stopPolling(); updateHeader(); return viewAdmin(); }
-  startPolling(r.code);
-  updateHeader();
-  if (!meet) return shell('loading', () => '<p class="muted center">Connecting…</p>');
-  const views = { starter: viewStarter, timer: r.lane ? viewTimer : viewLanePicker, board: viewBoard, results: viewResults };
-  (views[r.role] || viewRoles)(r);
-}
-function shell(key, html, after) {
-  document.querySelector('main').classList.toggle('wide', key.startsWith('results'));
-  document.body.classList.toggle('tv', key.startsWith('board'));
-  if (key === shellKey) return false;
-  shellKey = key;
-  $app.innerHTML = typeof html === 'function' ? html() : html;
-  after && after();
-  return true;
-}
-function updateHeader() {
-  const r = route();
-  document.getElementById('hdr').innerHTML = meet && r.code
-    ? `${esc(meet.name)} · <b>${meet.code}</b> <span class="conn ${online ? '' : 'off'}" title="${online ? 'Connected' : 'Offline'}"></span>`
-      + (r.role === 'starter' || r.role === 'timer' ? syncBadge() : '')
-    : '';
-}
-
-// ---------- views ----------
-function viewHome() {
-  const recent = recentMeets();
-  const opened = (t) => new Date(t).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-  return (recent.length ? `
-  <div class="card">
-    <h1>Recent meets</h1>
-    <div class="recent">${recent.map((x) => `
-      <div class="recent-row">
-        <a href="#/${esc(x.code)}">
-          <b>${esc(x.name)}</b> <span class="pill">${esc(x.code)}</span>
-          <div class="muted small">${x.date ? meetDate(x.date) + ' · ' : ''}${x.lanes} lanes · ${x.pool} ${esc(x.unit)} · opened ${opened(x.opened)}</div>
-        </a>
-        <button class="secondary" title="Remove from list" aria-label="Remove ${esc(x.name)} from list"
-          onclick="forgetMeet('${esc(x.code)}')">×</button>
-      </div>`).join('')}
-    </div>
-  </div>` : '') + `
-  <div class="card">
-    <h1>Join a meet</h1>
-    <form id="join" class="stack">
-      <input id="joincode" placeholder="Meet code (e.g. K7QM)" maxlength="4" autocapitalize="characters" autocomplete="off" required>
-      <button>Join</button>
-    </form>
-  </div>
-  <div class="card">
-    <h1>Create a meet</h1>
-    <form id="create">
-      <label>Meet name</label><input id="mname" placeholder="Saturday Dual Meet">
-      <label>Date</label><input id="mdate" type="date" value="${new Date().toLocaleDateString('en-CA')}">
-      <div class="row">
-        <div><label>Lanes</label><select id="mlanes">${[4,5,6,7,8,9,10].map((n) => `<option ${n === 6 ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
-        <div><label>Pool length</label><select id="mpool">
-          <option value="25-yd">25 yards</option><option value="25-m">25 meters</option><option value="50-m">50 meters</option>
-        </select></div>
-      </div>
-      <label>Events are for</label><select id="mgenders">
-        <option value="bg">Boys / Girls</option><option value="mw">Men / Women</option><option value="none">Combined (no gender)</option>
-      </select>
-      <div style="margin-top:14px"><button>Create meet</button></div>
-    </form>
-  </div>
-  <p class="center small"><a class="muted" href="#/admin">Admin</a></p>`;
-}
-
-// ----- Admin -----
-// The password is remembered in this browser and sent with each admin call.
-const ADMIN_KEY = 'smt-admin';
-const adminPassword = () => { try { return localStorage.getItem(ADMIN_KEY) || ''; } catch { return ''; } };
-function setAdminPassword(pw) {
-  try { pw ? localStorage.setItem(ADMIN_KEY, pw) : localStorage.removeItem(ADMIN_KEY); } catch {}
-}
-async function adminCall(action, body = {}) {
-  try {
-    const res = await fetch(`${API}?a=${action}`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password: adminPassword(), ...body }),
-    });
-    return { status: res.status, data: await res.json() };
-  } catch {
-    return { status: 0, data: { error: 'Network problem' } };
-  }
-}
-
-function viewAdmin() {
-  if (!adminPassword()) {
-    return shell('admin-login', `
-      <div class="card">
-        <h1>Admin</h1>
-        <form id="adminlogin" class="stack">
-          <input id="adminpw" type="password" placeholder="Admin password" autocomplete="current-password" required>
-          <button>Sign in</button>
-        </form>
-      </div>`);
-  }
-  if (!shell('admin', `
-    <div class="card">
-      <div class="heatcard-head" style="margin-bottom:0">
-        <h1 style="margin:0">All meets</h1>
-        <button class="secondary" id="adminout" style="width:auto;margin-left:auto;padding:6px 12px">Sign out</button>
-      </div>
-      <div id="adminlist" style="margin-top:12px"><p class="muted">Loading…</p></div>
-    </div>`, () => {
-    document.getElementById('adminout').onclick = () => { setAdminPassword(''); shellKey = null; render(); };
-  })) return;
-  loadAdmin();
-}
-
-async function loadAdmin() {
-  const { status, data } = await adminCall('admin-list');
-  if (status === 401) { setAdminPassword(''); toast('Wrong password'); shellKey = null; return render(); }
-  const el = document.getElementById('adminlist');
-  if (!el) return;
-  if (status !== 200) { el.innerHTML = `<p class="muted">${esc(data.error || 'Could not load meets')}</p>`; return; }
-  const when = (t) => new Date(t).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-  el.innerHTML = data.meets.map((m) => `
-    <div class="recent-row">
-      <a href="#/${esc(m.code)}">
-        <b>${esc(m.name)}</b> <span class="pill">${esc(m.code)}</span>
-        <div class="muted small">${m.date ? meetDate(m.date) + ' · ' : ''}${m.heats} heat${m.heats === 1 ? '' : 's'} · ${m.lanes} lanes · ${m.pool} ${esc(m.unit)}</div>
-        <div class="muted small">Last activity ${when(m.updated)}</div>
-      </a>
-      <button class="danger" style="width:auto;padding:8px 12px;font-size:14px" data-delete="${esc(m.code)}" data-name="${esc(m.name)}">Delete</button>
-    </div>`).join('') || '<p class="muted">No meets.</p>';
-  el.querySelectorAll('[data-delete]').forEach((b) => (b.onclick = async () => {
-    const { delete: code, name } = b.dataset;
-    if (!confirm(`Delete "${name}" (${code})? This permanently removes all of its results.`)) return;
-    b.disabled = true;
-    const res = await adminCall('admin-delete', { code });
-    if (res.status !== 200) { toast(res.data.error || 'Delete failed'); b.disabled = false; return; }
-    saveRecent(recentMeets().filter((x) => x.code !== code));
-    loadAdmin();
-  }));
-}
-document.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  if (e.target.id === 'adminlogin') {
-    setAdminPassword(document.getElementById('adminpw').value);
-    shellKey = null;
-    render();
-  } else if (e.target.id === 'join') {
-    location.hash = '#/' + document.getElementById('joincode').value.trim().toUpperCase();
-  } else if (e.target.id === 'create') {
-    const [pool, unit] = document.getElementById('mpool').value.split('-');
-    const res = await post('create', {
-      name: document.getElementById('mname').value,
-      date: document.getElementById('mdate').value,
-      lanes: Number(document.getElementById('mlanes').value), pool: Number(pool), unit,
-      genders: document.getElementById('mgenders').value,
-    }, '');
-    if (res) location.hash = '#/' + res.code;
-  }
-});
-
-function viewRoles(r) {
-  shell('roles:' + r.code, () => {
-    const link = location.href.split('#')[0] + '#/' + meet.code;
-    return `
-    <div class="card center">
-      <h1 style="margin-bottom:4px">${esc(meet.name)}</h1>
-      ${meet.date ? `<div class="muted">${meetDate(meet.date)}</div>` : ''}
-      <div class="muted small" style="margin-top:12px">Meet code</div>
-      <div class="code">${meet.code}</div>
-      <div class="muted small" style="margin-top:6px">${meet.lanes} lanes · ${meet.pool} ${meet.unit} pool</div>
-      <div class="small" style="margin-top:8px;word-break:break-all"><a href="${esc(link)}">${esc(link)}</a></div>
-      <div class="qr" id="qrbtn" role="button" tabindex="0" title="Show full screen">${qrSvg(link)}</div>
-      <div class="muted small">Tap the QR code to show it full screen</div>
-    </div>
-    <div class="roles">
-      <a class="btn" style="background:var(--go)" href="#/${meet.code}/starter">Starter<small>Starts the clock for each heat</small></a>
-      <a class="btn" href="#/${meet.code}/timer">Timer<small>Records splits and final time for a lane</small></a>
-      <a class="btn secondary" href="#/${meet.code}/board">Scoreboard<small>Full-screen live display for a TV</small></a>
-      <a class="btn secondary" href="#/${meet.code}/results">Results<small>Current heat and all completed heats, with splits</small></a>
-    </div>`;
-  }, () => {
-    const link = location.href.split('#')[0] + '#/' + meet.code;
-    const qrbtn = document.getElementById('qrbtn');
-    qrbtn.onclick = () => showQr(link);
-    qrbtn.onkeydown = (e) => (e.key === 'Enter' || e.key === ' ') && showQr(link);
-  });
-}
-
-// ----- Starter -----
-// Choices are buttons (no typing). Each tap saves just that field, so quick taps can't undo each other.
-let setupSaving = Promise.resolve();
-function setHeat(fields) {
-  if (!meet.heat.event) fields = { event: 1, heat: 1, ...fields };   // heat from an older meet
-  setupSaving = post('setup', fields);
-}
-const segButtons = (field, values, current, text = (v) => v) => values.map((v) =>
-  `<button type="button" class="${v === current ? 'on' : ''}" data-set="${field}" data-value="${esc(v)}">${esc(text(v))}</button>`).join('');
-
-// Saves this heat's results and sets up the next one.
-function nextHeat(fields) {
-  const open = results(meet, meet.heat).filter((x) => x.timers > 0 && x.final == null);
-  if (open.length && !confirm(`Lane${open.length > 1 ? 's' : ''} ${open.map((x) => x.lane).join(', ')} not finished. Move on anyway?`)) return;
-  post('next', fields);
-}
-
-function viewStarter(r) {
-  const h = meet.heat;
-  if (!h.startedAt) {
-    shell(`starter-ready:${h.id}`, () => `
-      <div class="card">
-        <span class="pill">Ready</span>
-        <div class="heatpreview" id="hprev"></div>
-        <div class="row" style="margin-top:12px">
-          <div class="stepper"><span>Event</span><button type="button" data-step="event" data-by="-1" aria-label="Previous event">−</button>
-            <b id="sevent"></b><button type="button" data-step="event" data-by="1" aria-label="Next event">+</button></div>
-          <div class="stepper"><span>Heat</span><button type="button" data-step="heat" data-by="-1" aria-label="Previous heat">−</button>
-            <b id="sheat"></b><button type="button" data-step="heat" data-by="1" aria-label="Next heat">+</button></div>
+<main>
+  <section>
+    <div class="wrap">
+      <h2>Three roles. One meet code.</h2>
+      <p class="sub">Everyone joins the same meet from their own phone and picks a job. Times flow to the scoreboard the moment they're tapped.</p>
+      <div class="steps">
+        <div class="step">
+          <div class="phone"><img src="img/starter.png" width="780" height="1688" loading="lazy"
+            alt="Starter screen: tap Girls, Free, and 100 yd to name the event, then a large green START button"></div>
+          <span class="num">1</span>
+          <h3>Starter</h3>
+          <p>Tap the stroke, distance, and gender, then tap START at the signal. Event and heat numbers fill in on their own.</p>
         </div>
-        ${GENDERS[meet.genders]?.length ? '<label>Gender</label><div class="seg" id="sgender"></div>' : ''}
-        <label>Stroke</label><div class="seg" id="sstroke"></div>
-        <label>Distance</label><div class="seg" id="sdist"></div>
-      </div>
-      <button class="big go" id="startbtn">START<small>Tap at the start signal</small></button>`, () => {
-      document.querySelector('#app .card').addEventListener('click', (e) => {
-        const b = e.target.closest('button');
-        if (!b) return;
-        const cur = meet.heat;
-        if (b.dataset.step) {
-          // Count from the number on screen so quick repeated taps add up.
-          const num = document.getElementById('s' + b.dataset.step);
-          const v = Number(num.textContent) + Number(b.dataset.by);
-          if (v >= 1) { num.textContent = v; setHeat({ [b.dataset.step]: v }); }
-          return;
-        }
-        b.parentNode.querySelectorAll('.on').forEach((x) => x.classList.remove('on'));
-        b.classList.add('on');                       // instant feedback; the server confirms
-        const { set, value } = b.dataset;
-        if (set === 'distance') setHeat({ distance: Number(value) });
-        else if (set === 'gender') setHeat({ gender: value === cur.gender ? '' : value });
-        else if (set === 'stroke') setHeat({ stroke: value, distance: distancesFor(value).includes(cur.distance) ? cur.distance : 0 });
-      });
-      const startbtn = document.getElementById('startbtn');
-      startbtn.addEventListener('pointerdown', async (e) => {
-        e.preventDefault();
-        if (startbtn.disabled) return;
-        const t = now();
-        buzz();
-        startbtn.disabled = true;
-        await setupSaving;                           // make sure the latest choices are saved first
-        await post('start', { t: stamp(t) });
-        startbtn.disabled = false;
-      });
-    });
-    document.getElementById('hprev').textContent = heatLabel(h.event ? h : { ...h, event: 1, heat: 1 });
-    document.getElementById('sevent').textContent = h.event || 1;
-    document.getElementById('sheat').textContent = h.heat || 1;
-    const g = document.getElementById('sgender');
-    if (g) g.innerHTML = segButtons('gender', GENDERS[meet.genders], h.gender);
-    document.getElementById('sstroke').innerHTML = segButtons('stroke', STROKES, h.stroke);
-    document.getElementById('sdist').innerHTML = h.stroke
-      ? segButtons('distance', distancesFor(h.stroke).map(String), String(h.distance), (d) => `${d} ${meet.unit}`)
-      : '<p class="muted small" style="margin:0">Pick a stroke first.</p>';
-    const ready = h.stroke && h.distance;
-    const startbtn = document.getElementById('startbtn');
-    startbtn.disabled = !ready;
-    startbtn.innerHTML = ready ? 'START<small>Tap at the start signal</small>' : 'START<small>Pick a stroke and distance</small>';
-    return;
-  }
-
-  shell(`starter-live:${h.id}`, () => `
-    <div class="card">
-      <span class="pill live" id="spill">Running</span>
-      <div style="margin-top:8px;font-weight:700">${heatTitle(meet, h)}</div>
-      <div class="clock" data-clock></div>
-      <table><thead><tr><th>Lane</th><th>Timers</th><th>Lap</th><th class="num">Time</th></tr></thead><tbody id="sstatus"></tbody></table>
-    </div>
-    <div class="row">
-      <button id="nextbtn">Next heat<small>Event ${h.event || 1} · Heat ${(h.heat || 1) + 1}</small></button>
-      <button class="secondary" id="neweventbtn">New event<small>Event ${(h.event || 1) + 1} · pick stroke</small></button>
-    </div>
-    <p class="muted small center">Both save this heat's results.</p>
-    <button class="danger" id="recallbtn">Recall (false start) — clear this heat</button>`, () => {
-    document.getElementById('recallbtn').onclick = () => confirm('Clear all times for this heat and restart?') && post('recall');
-    document.getElementById('nextbtn').onclick = () => {
-      const c = meet.heat;
-      nextHeat({ event: c.event || 1, heat: (c.heat || 1) + 1, stroke: c.stroke || '', distance: c.distance, gender: c.gender || '' });
-    };
-    document.getElementById('neweventbtn').onclick = () => {
-      const c = meet.heat;
-      nextHeat({ event: (c.event || 1) + 1, heat: 1, stroke: '', distance: 0, gender: c.gender || '' });
-    };
-  });
-
-  const laps = lapsFor(meet, h);
-  const rows = results(meet, h);
-  document.getElementById('spill').textContent = rows.some((x) => x.timers) && rows.filter((x) => x.timers).every((x) => x.final != null) ? 'All finished' : 'Running';
-  document.getElementById('sstatus').innerHTML = rows.map((x) => `
-    <tr class="${x.empty ? 'faded' : ''}"><td><b>${x.lane}</b></td>
-      <td>${x.empty ? 'Empty' : x.timers ? `${x.finished}/${x.timers} done` : '<span class="muted">—</span>'}</td>
-      <td>${x.timers ? (x.final != null ? 'Done' : `${x.splits.length + 1}${laps ? '/' + laps : ''}`) : ''}</td>
-      <td class="num">${fmt(x.final)}</td></tr>`).join('');
-}
-
-// ----- Timer -----
-function viewLanePicker(r) {
-  shell('lanes:' + r.code, () => `
-    <h1>Pick your lane</h1>
-    <div class="lanegrid">${Array.from({ length: meet.lanes }, (_, i) =>
-      `<button onclick="location.hash='#/${meet.code}/timer/${i + 1}'">${i + 1}</button>`).join('')}</div>
-    <p class="muted small">Up to 3 timers can share a lane; the official time uses the middle time (or the average of two).</p>`);
-}
-
-let lastTap = 0, pending = false;
-function viewTimer(r) {
-  const h = meet.heat;
-  shell(`timer:${r.lane}:${h.id}`, () => `
-    <div class="center">
-      <div style="font-size:28px;font-weight:800">Lane ${r.lane}</div>
-      <div class="muted">${heatTitle(meet, h)}</div>
-      <div class="clock" data-clock></div>
-      <div id="tstatus" class="muted" style="margin-bottom:10px"></div>
-    </div>
-    <button class="big split" id="tapbtn"></button>
-    <div class="row" style="margin-top:10px">
-      <button class="secondary" id="finishbtn">Finish now</button>
-      <button class="secondary" id="undobtn">Undo last</button>
-    </div>
-    <button class="secondary" id="emptybtn" style="margin-top:10px"></button>
-    <div class="card" style="margin-top:16px">
-      <table class="split-list"><thead><tr><th>Lap</th><th class="num">Split</th><th class="num">Lap time</th></tr></thead><tbody id="tsplits"></tbody></table>
-    </div>
-    <a class="btn secondary" href="#/${meet.code}/timer">Change lane</a>`, () => {
-    const [tapbtn, finishbtn, undobtn, emptybtn] = ['tapbtn', 'finishbtn', 'undobtn', 'emptybtn'].map((id) => document.getElementById(id));
-    const record = async (kind) => {
-      const t = now();                                  // capture the instant of the tap first
-      if (pending || t - lastTap < LANE_DEBOUNCE_MS) return;
-      lastTap = t; pending = true; buzz();
-      await post(kind, { lane: r.lane, cid, t: stamp(t) });
-      pending = false;
-    };
-    tapbtn.addEventListener('pointerdown', (e) => { e.preventDefault(); record(tapbtn.dataset.kind); });
-    finishbtn.onclick = () => record('finish');
-    undobtn.onclick = () => confirm('Remove your last recorded time?') && post('undo', { lane: r.lane, cid });
-    emptybtn.onclick = () => post('empty', { lane: r.lane, empty: !(meet.heat.empty || []).includes(r.lane) });
-  });
-
-  const mine = h.lanes?.[r.lane]?.timers?.[cid] || { splits: [], final: null };
-  const lane = laneSummary(h.lanes?.[r.lane]);
-  const laps = lapsFor(meet, h);
-  const lap = mine.splits.length + 1;
-  const isLast = laps && lap >= laps;
-  const isEmpty = (h.empty || []).includes(r.lane);
-  const laneHasTimes = lane.splits.length > 0 || lane.finished > 0;
-  const tap = document.getElementById('tapbtn');
-
-  if (isEmpty) {
-    tap.className = 'big'; tap.disabled = true; tap.dataset.kind = '';
-    tap.innerHTML = 'EMPTY LANE<small>No swimmer this heat</small>';
-  } else if (!h.startedAt) {
-    tap.className = 'big'; tap.disabled = true; tap.dataset.kind = '';
-    tap.innerHTML = 'Waiting for start…';
-  } else if (mine.final != null) {
-    tap.className = 'big'; tap.disabled = true; tap.dataset.kind = '';
-    tap.innerHTML = `${fmt(mine.final)}<small>Finished — waiting for next heat</small>`;
-  } else {
-    tap.disabled = false;
-    tap.dataset.kind = isLast ? 'finish' : 'split';
-    tap.className = 'big ' + (isLast ? 'finish' : 'split');
-    tap.innerHTML = isLast ? `FINISH<small>Lap ${lap}${laps ? ' of ' + laps : ''}</small>` : `SPLIT<small>End of lap ${lap}${laps ? ' of ' + laps : ''}</small>`;
-  }
-  document.getElementById('finishbtn').disabled = isEmpty || !h.startedAt || mine.final != null || isLast;
-  const emptyBtn = document.getElementById('emptybtn');
-  emptyBtn.textContent = isEmpty ? 'Lane marked empty — tap to undo' : 'Empty lane';
-  emptyBtn.disabled = !isEmpty && laneHasTimes;
-  document.getElementById('undobtn').disabled = !mine.splits.length && mine.final == null;
-  document.getElementById('tstatus').textContent =
-    lane.timers > 1 ? `${lane.timers} timers on this lane` + (lane.final != null ? ` · official ${fmt(lane.final)}` : '') : '';
-
-  const all = [...mine.splits, ...(mine.final != null ? [mine.final] : [])];
-  document.getElementById('tsplits').innerHTML = all.map((s, i) => `
-    <tr><td>${i === mine.splits.length ? 'Final' : i + 1}</td><td class="num">${fmt(s)}</td><td class="num">${fmtLap(s, all[i - 1])}</td></tr>`).join('')
-    || '<tr><td colspan="3" class="muted">No times yet</td></tr>';
-}
-
-// ----- Results -----
-function resultsTable(heat) {
-  const rows = results(meet, heat).filter((x) => x.timers)
-    .sort((a, b) => (a.place ?? 99) - (b.place ?? 99) || a.lane - b.lane);
-  if (!rows.length) return '<p class="muted">No times recorded.</p>';
-  return `<table><thead><tr><th>Place</th><th>Lane</th><th>Splits</th><th class="num">Time</th></tr></thead><tbody>${rows.map((x) => {
-    const splits = x.splits.map((s, i) => `${fmt(s)} <span style="opacity:.6">(${fmtLap(s, x.splits[i - 1])})</span>`).join(' · ');
-    const place = x.place ? `<span class="${x.place === 1 ? 'place1' : ''}">${x.place}</span>` : '';
-    const time = x.final != null ? `<b>${fmt(x.final)}</b>` : x.splits.length ? `<span class="muted">${fmt(x.splits.at(-1))}</span>` : '';
-    return `<tr><td>${place}</td><td>${x.lane}</td><td class="splits">${splits}</td><td class="num">${time}</td></tr>`;
-  }).join('')}</tbody></table>`;
-}
-
-function viewResults(r) {
-  shell('results:' + r.code, () => `
-    <h1 style="margin-bottom:0">${esc(meet.name)}</h1>
-    <p class="muted" style="margin:2px 0 16px">${meet.date ? meetDate(meet.date) + ' · ' : ''}Results</p>
-    <div class="card">
-      <div class="heatcard-head"><span class="pill" id="rpill"></span><b id="rtitle"></b><span class="clockmini" data-clock id="rclock"></span></div>
-      <div id="rcur"></div>
-    </div>
-    <h2>Completed heats</h2>
-    <div id="rhist"></div>`);
-  const h = meet.heat;
-  const done = heatDone(meet, h);
-  const pill = document.getElementById('rpill');
-  pill.className = 'pill ' + (done ? 'done' : h.startedAt ? 'live' : '');
-  pill.textContent = done ? 'Finished' : h.startedAt ? 'Live' : 'Up next';
-  document.getElementById('rtitle').innerHTML = heatTitle(meet, h);
-  document.getElementById('rclock').hidden = !h.startedAt;
-  document.getElementById('rcur').innerHTML = h.startedAt ? resultsTable(h) : '<p class="muted">Not started yet.</p>';
-
-  // History rarely changes; only rebuild when it does, so open <details> stay open.
-  const hist = document.getElementById('rhist');
-  const histKey = meet.history.length + ':' + (meet.history[0]?.id || '');
-  if (hist.dataset.key !== histKey) {
-    hist.dataset.key = histKey;
-    hist.innerHTML = meet.history.map((hh, i) => `
-      <details class="card" ${i === 0 ? 'open' : ''}>
-        <summary>${heatTitle(meet, hh)}</summary>
-        ${resultsTable(hh)}
-      </details>`).join('') || '<p class="muted">Completed heats will appear here.</p>';
-  }
-}
-
-// ----- TV scoreboard -----
-function boardRow(x, laps) {
-  if (x.empty) return `<div class="tv-row empty"><div class="c-lane">${x.lane}</div><div class="c-msg">Empty lane</div></div>`;
-  const last = x.splits.at(-1);
-  const lap = !x.timers ? '' : x.final != null ? '<span class="tv-check">✓</span>' : `${x.splits.length + 1}${laps ? `<small>/${laps}</small>` : ''}`;
-  const split = last != null ? `${fmt(last)}<small>(${fmtLap(last, x.splits.at(-2))})</small>` : '';
-  const place = x.place ? `<span class="medal m${x.place}">${x.place}</span>` : '';
-  return `<div class="tv-row"><div class="c-lane">${x.lane}</div><div class="c-lap">${lap}</div>
-    <div class="c-split">${split}</div><div class="c-time">${fmt(x.final)}</div><div class="c-place">${place}</div></div>`;
-}
-
-function viewBoard(r) {
-  shell(`board:${r.code}:${meet.lanes}`, () => `
-    <div class="tv-wrap"><div class="tv-stage" style="--lanes:${Math.max(meet.lanes, 6)}">
-      <div class="tv-top">
-        <div class="tv-titles">
-          <div class="tv-meet">${esc(meet.name)}</div>
-          <div class="tv-heat" id="tvheat"></div>
-          <div class="tv-sub"><span class="tv-pill" id="tvpill"></span><span id="tvdist"></span></div>
+        <div class="step">
+          <div class="phone"><img src="img/timer.png" width="780" height="1688" loading="lazy"
+            alt="Timer screen for Lane 2: running clock and a big blue SPLIT button, end of lap 2 of 4"></div>
+          <span class="num">2</span>
+          <h3>Lane timers</h3>
+          <p>Each timer picks a lane and taps one big button at every wall. It turns into FINISH on the last lap. Up to three timers per lane.</p>
         </div>
-        <div class="tv-clock" data-clock></div>
+        <div class="step">
+          <div class="phone"><img src="img/results.png" width="780" height="1688" loading="lazy"
+            alt="Results screen listing places, lanes, splits, and final times for the live heat and completed heats"></div>
+          <span class="num">3</span>
+          <h3>Scoreboard &amp; results</h3>
+          <p>Put the scoreboard on a TV for the crowd. Coaches and parents follow every heat, with places and splits, on their phones.</p>
+        </div>
       </div>
-      <div class="tv-grid">
-        <div class="tv-row tv-head"><div class="c-lane">Lane</div><div>Lap</div><div>Last split</div><div class="c-time">Time</div><div class="c-place">Place</div></div>
-        <div id="tvlanes"></div>
+    </div>
+  </section>
+
+  <section class="features">
+    <div class="wrap">
+      <h2>Built for a real pool deck.</h2>
+      <p class="sub">Volunteers can learn it in a minute. It's accurate enough to trust the results.</p>
+      <div class="feat-grid">
+        <div class="feat"><div class="ico">⏱️</div><h3>Lag-proof timing</h3>
+          <p>Phones sync to the server clock, and each tap is time-stamped on the phone when it happens. A slow pool Wi-Fi network won't change anyone's time.</p></div>
+        <div class="feat"><div class="ico">🏅</div><h3>USA Swimming rules</h3>
+          <p>With three timers the middle time is official, with two it's the average, and with one it's that time. Places are ranked on hand times to tenths.</p></div>
+        <div class="feat"><div class="ico">📺</div><h3>Live TV scoreboard</h3>
+          <p>A full-screen 16:9 display with the running clock, laps, splits, and medals. Final results stay up until the next start.</p></div>
+        <div class="feat"><div class="ico">📱</div><h3>Nothing to install</h3>
+          <p>It runs in the browser. Volunteers join by scanning the meet's QR code or typing its 4-letter code.</p></div>
+        <div class="feat"><div class="ico">🟢</div><h3>Sync you can see</h3>
+          <p>A green, amber, or red badge on every phone shows how well it's synced. Tap it to re-sync.</p></div>
+        <div class="feat"><div class="ico">↩️</div><h3>Recover from mistakes</h3>
+          <p>Recall a false start, undo a stray tap, or mark a lane empty. The starter moves to the next heat or event with one tap.</p></div>
       </div>
-      <div class="tv-foot"><span id="tvnext"></span><span class="tv-code">Meet code <b>${esc(meet.code)}</b></span></div>
-    </div></div>
-    <div class="tv-ui">
-      <a href="#/${meet.code}">‹ Back</a>
-      <button id="fsbtn">Full screen (F)</button>
-    </div>`, () => {
-    document.getElementById('fsbtn').onclick = toggleFullscreen;
-  });
+    </div>
+  </section>
 
-  const { heat: h, next } = boardHeat(meet);
-  const done = !!next || heatDone(meet, h);
-  const pill = document.getElementById('tvpill');
-  pill.className = 'tv-pill ' + (done ? 'done' : h.startedAt ? 'live' : '');
-  pill.textContent = done ? 'FINAL' : h.startedAt ? 'LIVE' : 'UP NEXT';
-  // Headline is the event ("Girls 100 Back"); the line below has event/heat numbers and laps.
-  const name = h.event ? eventName(h) : '';
-  document.getElementById('tvheat').textContent = name || heatLabel(h);
-  document.getElementById('tvdist').textContent = [name && heatNum(h), h.distance && `${h.distance} ${meet.unit} · ${lapsFor(meet, h)} laps`]
-    .filter(Boolean).join(' · ');
-  document.getElementById('tvlanes').innerHTML = results(meet, h).map((x) => boardRow(x, lapsFor(meet, h))).join('');
-  document.getElementById('tvnext').innerHTML = next ? `Up next <b>${heatTitle(meet, next)}</b>` : '';
-}
+  <section>
+    <div class="wrap split">
+      <div>
+        <h2>From splash to scoreboard in seconds.</h2>
+        <p class="sub">When the last swimmer touches, the results are already done.</p>
+      </div>
+      <ul>
+        <li><b>Every split, every lane</b><span>Lap times and cumulative splits are saved for every swimmer, every heat.</span></li>
+        <li><b>Ties handled correctly</b><span>Equal times to the tenth share a place.</span></li>
+        <li><b>Whole-meet history</b><span>Completed heats stay in the results, so you can look one up later.</span></li>
+        <li><b>Any pool</b><span>Yards or meters, 1–12 lanes, Boys/Girls, Men/Women, or open events.</span></li>
+      </ul>
+    </div>
+  </section>
 
-function toggleFullscreen() {
-  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-  else document.documentElement.requestFullscreen?.().catch(() => {});
-}
-// On the TV view: show the controls (and cursor) briefly when the mouse moves; F toggles full screen.
-let tvIdle = null;
-document.addEventListener('pointermove', () => {
-  if (!document.body.classList.contains('tv')) return;
-  document.body.classList.add('tv-ui-on');
-  clearTimeout(tvIdle);
-  tvIdle = setTimeout(() => document.body.classList.remove('tv-ui-on'), 2500);
-});
-document.addEventListener('keydown', (e) => {
-  if (document.body.classList.contains('tv') && e.key.toLowerCase() === 'f' && !document.getElementById('qrfull')) toggleFullscreen();
-});
-document.addEventListener('dblclick', () => document.body.classList.contains('tv') && toggleFullscreen());
+  <section class="final">
+    <div class="wrap">
+      <h2>Ready for your next meet?</h2>
+      <p>Create a meet, share the code with your volunteers, and you're timing in under a minute.</p>
+      <a class="cta" href="app.html">Launch the timer</a>
+    </div>
+  </section>
+</main>
 
-// ---------- running clocks ----------
-function frame() {
-  if (meet) {
-    const els = document.querySelectorAll('[data-clock]');
-    if (els.length) {
-      const heat = route().role === 'board' ? boardHeat(meet).heat : meet.heat;
-      const text = fmt(heatClock(meet, heat)) || '0.0';
-      els.forEach((el) => el.textContent !== text && (el.textContent = text));
-    }
-  }
-  requestAnimationFrame(frame);
-}
+<footer>Simple Meet Timer · <a href="app.html">Open the app</a></footer>
 
-// Keep phone screens awake where supported (needs HTTPS).
-async function wakeLock() {
-  try { if (navigator.wakeLock && route().role) await navigator.wakeLock.request('screen'); } catch {}
-}
-// After the phone sleeps the steady timer may have paused, so the old offset can't be trusted.
-document.addEventListener('visibilitychange', () => !document.hidden && (wakeLock(), syncClock(true)));
-document.addEventListener('click', wakeLock, { once: true });
-
-syncClock().then(render);
-setInterval(syncClock, 60000);
-render();
-requestAnimationFrame(frame);
-</script>
 </body>
 </html>

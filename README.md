@@ -14,13 +14,13 @@ The starter and timer screens show sync accuracy in the header (green ≤ ±0.02
 
 ## Deploy (Apache + PHP on a DigitalOcean droplet)
 
-1. Copy `index.html`, `api.php`, the `vendor/` folder, and the `data/` folder (with its `.htaccess`) to a folder under your web root, e.g. `/var/www/html/meet/`.
+1. Copy `index.html` (landing page), `app.html` (the app), `api.php`, the `img/` and `vendor/` folders, and the `data/` folder (with its `.htaccess`) to a folder under your web root, e.g. `/var/www/html/meet/`.
 2. Make `data/` writable by Apache: `sudo chown www-data:www-data data && sudo chmod 775 data`
 3. Make sure Apache honors `data/.htaccess` (`AllowOverride All`), or add
    `<Directory /var/www/html/meet/data> Require all denied </Directory>` to the site config.
-4. Open `https://your-domain/meet/`, create a meet, and share the 4-letter code or link.
+4. Open `https://your-domain/meet/` (landing page) and tap **Launch the timer**, or go straight to `https://your-domain/meet/app.html`. Create a meet, and share the 4-letter code or link.
 5. Optional admin page (list and delete all meets): copy `config.sample.php` to `config.php` on the server and set
-   `ADMIN_PASSWORD`. Then open `https://your-domain/meet/#/admin` (also linked at the bottom of the home page).
+   `ADMIN_PASSWORD`. Then open `https://your-domain/meet/app.html#/admin` (also linked at the bottom of the home page).
    `config.php` is kept out of git; without it the admin page stays off.
 
 Use HTTPS if you can: it lets phones keep their screens awake during a heat (Wake Lock API).
@@ -31,4 +31,4 @@ Use HTTPS if you can: it lets phones keep their screens awake during a heat (Wak
 php -S 0.0.0.0:8000
 ```
 
-Then open `http://<your-computer-ip>:8000` on phones on the same Wi-Fi.
+Then open `http://<your-computer-ip>:8000/app.html` on phones on the same Wi-Fi.
